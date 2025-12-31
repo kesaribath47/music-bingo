@@ -83,10 +83,15 @@ io.on('connection', (socket) => {
       }
 
       // Notify all players that game is starting
-      io.to(roomCode).emit('game-starting', { message: 'Generating songs...' });
+      io.to(roomCode).emit('game-starting', { message: 'Generating initial songs...' });
 
-      // Generate songs (this may take a while)
-      await gameManager.startGame(roomCode);
+      // Progress callback for initial song generation
+      const progressCallback = (current, total) => {
+        io.to(roomCode).emit('generation-progress', { current, total });
+      };
+
+      // Generate initial songs with progress updates
+      await gameManager.startGame(roomCode, progressCallback, io);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);

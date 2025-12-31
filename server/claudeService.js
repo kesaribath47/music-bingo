@@ -114,29 +114,41 @@ Respond in JSON format:
 
   /**
    * Generate multiple song associations for a game
+   * @param {number} count - Number of songs to generate
+   * @param {function} progressCallback - Optional callback(current, total) for progress updates
+   * @param {object} existingData - Optional existing songs and baseValues to continue from
    */
-  async generateGameSongs(count = 75) {
-    const songs = [];
-    const usedSongs = [];
-    const baseValues = {}; // Track base values across all songs
+  async generateGameSongs(count = 75, progressCallback = null, existingData = null) {
+    const songs = existingData?.songs || [];
+    const usedSongs = existingData?.usedSongs || [];
+    const baseValues = existingData?.baseValues || {};
 
     // Generate numbers 1-75 in random order
     const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
     this.shuffleArray(numbers);
 
-    // Generate songs for first 'count' numbers
-    for (let i = 0; i < Math.min(count, 75); i++) {
-      console.log(`Generating song ${i + 1}/${count}...`);
+    // Filter out numbers already used
+    const availableNumbers = numbers.filter(num =>
+      !songs.some(song => song.number === num)
+    );
 
-      const song = await this.generateSongAssociation(numbers[i], usedSongs, baseValues);
+    // Generate songs for first 'count' numbers
+    const songsToGenerate = Math.min(count, availableNumbers.length);
+    for (let i = 0; i < songsToGenerate; i++) {
+      const song = await this.generateSongAssociation(availableNumbers[i], usedSongs, baseValues);
       songs.push(song);
       usedSongs.push(`${song.artist} - ${song.song}`);
+
+      // Report progress if callback provided
+      if (progressCallback) {
+        progressCallback(i + 1, songsToGenerate);
+      }
 
       // Small delay to avoid rate limiting
       await this.sleep(1000);
     }
 
-    return { songs, baseValues };
+    return { songs, baseValues, usedSongs };
   }
 
   /**

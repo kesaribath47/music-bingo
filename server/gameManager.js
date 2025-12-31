@@ -27,10 +27,12 @@ class GameManager {
       prizeManager: new PrizeManager(),
       songs: [],
       baseValues: {},
+      usedSongs: [],
       currentSongIndex: -1,
       calledNumbers: [],
       gameStarted: false,
       gameEnded: false,
+      isGeneratingSongs: false,
       createdAt: Date.now()
     };
 
@@ -111,9 +113,12 @@ class GameManager {
   }
 
   /**
-   * Start game - generate songs
+   * Start game - generate initial songs
+   * @param {string} roomCode
+   * @param {function} progressCallback - Called with (current, total) for progress updates
+   * @param {object} io - Socket.io instance for background generation events
    */
-  async startGame(roomCode) {
+  async startGame(roomCode, progressCallback = null, io = null) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
@@ -125,17 +130,77 @@ class GameManager {
 
     room.gameStarted = true;
 
-    // Generate songs for all 75 numbers
-    // For demo purposes, we'll generate just 20 songs to save time
-    // You can increase this to 75 for a full game
-    const { songs, baseValues } = await this.claudeService.generateGameSongs(20);
+    // Generate only 3 songs initially to get started quickly
+    const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
+      3,
+      progressCallback
+    );
     room.songs = songs;
     room.baseValues = baseValues;
+    room.usedSongs = usedSongs;
 
     // Shuffle songs
     this.shuffleArray(room.songs);
 
+    // Start background generation if io is provided
+    if (io) {
+      this.continueGeneratingInBackground(roomCode, io);
+    }
+
     return room;
+  }
+
+  /**
+   * Continue generating songs in the background
+   */
+  continueGeneratingInBackground(roomCode, io) {
+    const room = this.getRoom(roomCode);
+    if (!room || room.isGeneratingSongs) return;
+
+    room.isGeneratingSongs = true;
+
+    // Generate songs in background (non-blocking)
+    (async () => {
+      try {
+        // Continue generating until we have enough or prizes are all claimed
+        while (room.songs.length < 75 && !room.gameEnded) {
+          const currentCount = room.songs.length;
+
+          // Generate 5 more songs at a time
+          const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
+            5,
+            null, // No progress callback for background generation
+            {
+              songs: room.songs,
+              baseValues: room.baseValues,
+              usedSongs: room.usedSongs
+            }
+          );
+
+          room.songs = songs;
+          room.baseValues = baseValues;
+          room.usedSongs = usedSongs;
+
+          // Notify clients that more songs are available
+          const newSongsCount = room.songs.length - currentCount;
+          if (newSongsCount > 0) {
+            io.to(roomCode).emit('songs-generated', {
+              totalSongs: room.songs.length,
+              newCount: newSongsCount
+            });
+          }
+
+          // Stop if game ended or all prizes claimed
+          if (room.gameEnded || room.songs.length >= 75) {
+            break;
+          }
+        }
+      } catch (error) {
+        console.error('Background song generation error:', error);
+      } finally {
+        room.isGeneratingSongs = false;
+      }
+    })();
   }
 
   /**
