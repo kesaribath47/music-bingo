@@ -1,5 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const play = require('play-dl');
+const DeezerService = require('./deezerService');
 
 /**
  * Service to generate song-number associations using Claude API
@@ -9,23 +9,7 @@ class ClaudeService {
     this.client = new Anthropic({
       apiKey: apiKey
     });
-  }
-
-  /**
-   * Search YouTube for a song and get the video ID
-   */
-  async searchYouTube(searchQuery) {
-    try {
-      const results = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
-      if (results && results.length > 0) {
-        const videoUrl = results[0].url;
-        const videoId = videoUrl.split('v=')[1]?.split('&')[0];
-        return videoId;
-      }
-    } catch (error) {
-      console.error('YouTube search error:', error.message);
-    }
-    return null;
+    this.deezerService = new DeezerService();
   }
 
   /**
@@ -74,7 +58,6 @@ Output ONLY this JSON structure with no additional text:
   "actors": ["Lead Actor Name", "Lead Actress Name"],
   "clue": "Description of the equation (e.g., 'Lead Actor + Lead Actress')",
   "year": 2013,
-  "youtubeSearch": "Artist/Actor Name - Song Title",
   "entities": [
     {"name": "Ranbir Kapoor", "role": "Lead Actor", "baseValue": 40},
     {"name": "Deepika Padukone", "role": "Lead Actress", "baseValue": 5}
@@ -119,10 +102,20 @@ Output ONLY this JSON structure with no additional text:
         });
       }
 
-      // Search YouTube for the song to get video ID
-      if (association.youtubeSearch) {
-        const videoId = await this.searchYouTube(association.youtubeSearch);
-        association.youtubeVideoId = videoId;
+      // Search Deezer for the song to get preview URL
+      const deezerResult = await this.deezerService.searchSong(
+        association.artist,
+        association.song,
+        association.year
+      );
+
+      if (deezerResult) {
+        association.previewUrl = deezerResult.previewUrl;
+        association.deezerLink = deezerResult.deezerLink;
+        association.albumCover = deezerResult.albumCover;
+      } else {
+        console.log(`No Deezer preview found for: ${association.artist} - ${association.song}`);
+        association.previewUrl = null;
       }
 
       return association;
@@ -140,8 +133,8 @@ Output ONLY this JSON structure with no additional text:
         actors: [],
         clue: `Value 1 + Value 2`,
         year: 2020,
-        youtubeSearch: `hindi songs ${2020}`,
-        youtubeVideoId: null,
+        previewUrl: null,
+        deezerLink: null,
         entities: [
           { name: 'Person A', role: 'Actor', baseValue: fallbackValue1 },
           { name: 'Person B', role: 'Actor', baseValue: fallbackValue2 }
