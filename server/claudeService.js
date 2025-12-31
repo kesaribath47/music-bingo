@@ -11,36 +11,51 @@ class ClaudeService {
   }
 
   /**
-   * Generate a song association for a given number
-   * Returns { number, song, artist, clue, year }
+   * Generate a song association for a given number using Kannada/Hindi songs
+   * with actor/singer base values
+   * Returns { number, song, artist, clue, year, entities, calculation }
    */
-  async generateSongAssociation(number, usedSongs = []) {
+  async generateSongAssociation(number, usedSongs = [], baseValues = {}) {
     const usedSongsText = usedSongs.length > 0
       ? `\n\nAlready used songs (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
 
-    const prompt = `Generate a song association for the number ${number} for a music bingo game.
+    const baseValuesText = Object.keys(baseValues).length > 0
+      ? `\n\nExisting base values for actors/singers:\n${JSON.stringify(baseValues, null, 2)}\nYou MUST use these exact base values if you use any of these people. For new people, assign unused values between 1-75.`
+      : '';
 
-The association should be creative and can use:
-- Release year that corresponds to the number (e.g., for 85, songs from 1985 or 2085)
-- A mathematical equation involving the artist's name (e.g., "Base 10 + first letter of artist's first name where A=1, B=2, etc.")
-- Song duration, chart position, or other numerical attributes
-- Creative wordplay or numerical references in the title
+    const prompt = `Generate a Kannada or Hindi song association for the number ${number} for a music bingo game.
+
+The clue should be a mathematical equation using base values assigned to actors and singers.
+
+For example:
+- If the target number is 45, and Ranbir Kapoor has base value 40, Deepika Padukone has base value 5:
+  Clue: "Lead Actor + Lead Actress" (40 + 5 = 45)
+- If the target number is 30, and Arijit Singh has value 15, Shreya Ghoshal has value 15:
+  Clue: "Male Singer + Female Singer" (15 + 15 = 30)
 
 Requirements:
-- Choose a well-known, popular song that most people would recognize
-- The song should be available on YouTube
-- Provide a clear clue/equation that players can solve to get the number ${number}
-- Make it fun and engaging!${usedSongsText}
+- Choose ONLY Kannada or Hindi film songs
+- The song must be well-known and popular
+- Use lead actors/actresses OR playback singers (or both) to create the math equation
+- The sum of the base values must equal ${number}
+- Assign base values (1-75) to each person involved
+- The song should be available on YouTube${usedSongsText}${baseValuesText}
 
 Respond in JSON format:
 {
   "number": ${number},
-  "song": "Song Title",
-  "artist": "Artist Name",
-  "clue": "The clue or equation (e.g., 'Released in 19__ + 0' or 'Base 75 + first letter of artist (B=2)')",
-  "year": 1985,
-  "youtubeSearch": "Artist Name - Song Title"
+  "song": "Song Title (in English or native script)",
+  "artist": "Singer Name(s)",
+  "actors": ["Lead Actor Name", "Lead Actress Name"],
+  "clue": "Description of the equation (e.g., 'Lead Actor + Lead Actress')",
+  "year": 2013,
+  "youtubeSearch": "Artist/Actor Name - Song Title",
+  "entities": [
+    {"name": "Ranbir Kapoor", "role": "Lead Actor", "baseValue": 40},
+    {"name": "Deepika Padukone", "role": "Lead Actress", "baseValue": 5}
+  ],
+  "calculation": "40 + 5"
 }`;
 
     try {
@@ -64,18 +79,35 @@ Respond in JSON format:
       }
 
       const association = JSON.parse(jsonText);
+
+      // Update base values with new entities
+      if (association.entities) {
+        association.entities.forEach(entity => {
+          baseValues[entity.name] = entity.baseValue;
+        });
+      }
+
       return association;
     } catch (error) {
       console.error('Error generating song association:', error);
 
-      // Fallback to simple year-based association
+      // Fallback to simple association
+      const fallbackValue1 = Math.floor(number / 2);
+      const fallbackValue2 = number - fallbackValue1;
+
       return {
         number: number,
-        song: `Song from ${1900 + number}`,
+        song: `Hindi Song ${number}`,
         artist: 'Various Artists',
-        clue: `Released in ${1900 + number}`,
-        year: 1900 + number,
-        youtubeSearch: `top hits ${1900 + number}`
+        actors: [],
+        clue: `Value 1 + Value 2`,
+        year: 2020,
+        youtubeSearch: `hindi songs ${2020}`,
+        entities: [
+          { name: 'Person A', role: 'Actor', baseValue: fallbackValue1 },
+          { name: 'Person B', role: 'Actor', baseValue: fallbackValue2 }
+        ],
+        calculation: `${fallbackValue1} + ${fallbackValue2}`
       };
     }
   }
@@ -86,6 +118,7 @@ Respond in JSON format:
   async generateGameSongs(count = 75) {
     const songs = [];
     const usedSongs = [];
+    const baseValues = {}; // Track base values across all songs
 
     // Generate numbers 1-75 in random order
     const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
@@ -95,7 +128,7 @@ Respond in JSON format:
     for (let i = 0; i < Math.min(count, 75); i++) {
       console.log(`Generating song ${i + 1}/${count}...`);
 
-      const song = await this.generateSongAssociation(numbers[i], usedSongs);
+      const song = await this.generateSongAssociation(numbers[i], usedSongs, baseValues);
       songs.push(song);
       usedSongs.push(`${song.artist} - ${song.song}`);
 
@@ -103,7 +136,7 @@ Respond in JSON format:
       await this.sleep(1000);
     }
 
-    return songs;
+    return { songs, baseValues };
   }
 
   /**

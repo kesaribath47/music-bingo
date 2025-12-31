@@ -26,6 +26,7 @@ class GameManager {
       host: null,
       prizeManager: new PrizeManager(),
       songs: [],
+      baseValues: {},
       currentSongIndex: -1,
       calledNumbers: [],
       gameStarted: false,
@@ -127,7 +128,9 @@ class GameManager {
     // Generate songs for all 75 numbers
     // For demo purposes, we'll generate just 20 songs to save time
     // You can increase this to 75 for a full game
-    room.songs = await this.claudeService.generateGameSongs(20);
+    const { songs, baseValues } = await this.claudeService.generateGameSongs(20);
+    room.songs = songs;
+    room.baseValues = baseValues;
 
     // Shuffle songs
     this.shuffleArray(room.songs);
@@ -226,7 +229,8 @@ class GameManager {
       currentSongIndex: room.currentSongIndex,
       totalSongs: room.songs.length,
       calledNumbers: room.calledNumbers,
-      prizes: room.prizeManager.getAllPrizes()
+      prizes: room.prizeManager.getAllPrizes(),
+      baseValues: room.baseValues
     };
   }
 
@@ -245,9 +249,9 @@ class GameManager {
    * Generate random room code
    */
   static generateRoomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let code = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return code;
