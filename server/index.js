@@ -97,6 +97,39 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Generate songs (host only)
+  socket.on('generate-songs', async ({ roomCode, config }) => {
+    try {
+      const room = gameManager.getRoom(roomCode);
+
+      if (!room) {
+        socket.emit('error', { message: 'Room not found' });
+        return;
+      }
+
+      if (room.host !== socket.id) {
+        socket.emit('error', { message: 'Only host can generate songs' });
+        return;
+      }
+
+      // Progress callback for song generation
+      const progressCallback = (current, total) => {
+        io.to(roomCode).emit('generation-progress', { current, total });
+      };
+
+      // Generate songs with progress updates
+      await gameManager.generateSongs(roomCode, config, progressCallback, io);
+
+      // Send updated room state
+      const roomState = gameManager.getRoomState(roomCode);
+      io.to(roomCode).emit('songs-generation-complete', roomState);
+
+      console.log(`Songs generated in room ${roomCode}`);
+    } catch (error) {
+      socket.emit('error', { message: error.message });
+    }
+  });
+
   // Start game (host only)
   socket.on('start-game', async ({ roomCode }) => {
     try {
@@ -112,16 +145,8 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Notify all players that game is starting
-      io.to(roomCode).emit('game-starting', { message: 'Generating initial songs...' });
-
-      // Progress callback for initial song generation
-      const progressCallback = (current, total) => {
-        io.to(roomCode).emit('generation-progress', { current, total });
-      };
-
-      // Generate initial songs with progress updates
-      await gameManager.startGame(roomCode, progressCallback, io);
+      // Start the game
+      gameManager.startGame(roomCode);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);

@@ -29,11 +29,12 @@ class ClaudeService {
   }
 
   /**
-   * Generate a song association for a given number using Kannada/Hindi songs
+   * Generate a song association for a given number using specified language songs
    * with actor/singer base values
    * Returns { number, song, artist, clue, year, entities, calculation }
    */
-  async generateSongAssociation(number, usedSongs = [], baseValues = {}) {
+  async generateSongAssociation(number, usedSongs = [], baseValues = {}, config = {}) {
+    const { startYear = 1990, endYear = 2024, languages = ['Hindi', 'Kannada'] } = config;
     const usedSongsText = usedSongs.length > 0
       ? `\n\nAlready used songs (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
@@ -42,9 +43,11 @@ class ClaudeService {
       ? `\n\nExisting base values for actors/singers:\n${JSON.stringify(baseValues, null, 2)}\nYou MUST use these exact base values if you use any of these people. For new people, assign unused values between 1-75.`
       : '';
 
+    const languageText = languages.length > 0 ? languages.join(' or ') : 'any language';
+
     const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
 
-Generate a Kannada or Hindi song association for the number ${number} for a music bingo game.
+Generate a ${languageText} song association for the number ${number} for a music bingo game.
 
 The clue should be a mathematical equation using base values assigned to actors and singers.
 
@@ -55,7 +58,8 @@ For example:
   Clue: "Male Singer + Female Singer" (15 + 15 = 30)
 
 Requirements:
-- Choose ONLY Kannada or Hindi film songs
+- Choose ONLY ${languageText} film songs
+- The song must be from the year range ${startYear} to ${endYear}
 - The song must be well-known and popular
 - Use lead actors/actresses OR playback singers (or both) to create the math equation
 - The sum of the base values must equal ${number}
@@ -152,8 +156,9 @@ Output ONLY this JSON structure with no additional text:
    * @param {number} count - Number of songs to generate
    * @param {function} progressCallback - Optional callback(current, total) for progress updates
    * @param {object} existingData - Optional existing songs and baseValues to continue from
+   * @param {object} config - Optional config with startYear, endYear, languages
    */
-  async generateGameSongs(count = 75, progressCallback = null, existingData = null) {
+  async generateGameSongs(count = 75, progressCallback = null, existingData = null, config = {}) {
     const songs = existingData?.songs || [];
     const usedSongs = existingData?.usedSongs || [];
     const baseValues = existingData?.baseValues || {};
@@ -170,7 +175,7 @@ Output ONLY this JSON structure with no additional text:
     // Generate songs for first 'count' numbers
     const songsToGenerate = Math.min(count, availableNumbers.length);
     for (let i = 0; i < songsToGenerate; i++) {
-      const song = await this.generateSongAssociation(availableNumbers[i], usedSongs, baseValues);
+      const song = await this.generateSongAssociation(availableNumbers[i], usedSongs, baseValues, config);
       songs.push(song);
       usedSongs.push(`${song.artist} - ${song.song}`);
 

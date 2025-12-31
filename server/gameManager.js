@@ -28,6 +28,8 @@ class GameManager {
       songs: [],
       baseValues: {},
       usedSongs: [],
+      songConfig: null, // { startYear, endYear, languages }
+      songsGenerated: false,
       currentSongIndex: -1,
       calledNumbers: [],
       gameStarted: false,
@@ -113,15 +115,60 @@ class GameManager {
   }
 
   /**
-   * Start game - generate initial songs
+   * Generate songs for a room
    * @param {string} roomCode
+   * @param {object} config - { startYear, endYear, languages }
    * @param {function} progressCallback - Called with (current, total) for progress updates
    * @param {object} io - Socket.io instance for background generation events
    */
-  async startGame(roomCode, progressCallback = null, io = null) {
+  async generateSongs(roomCode, config, progressCallback = null, io = null) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
+    }
+
+    if (room.songsGenerated) {
+      throw new Error('Songs already generated');
+    }
+
+    room.isGeneratingSongs = true;
+    room.songConfig = config;
+
+    // Generate only 3 songs initially to get started quickly
+    const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
+      3,
+      progressCallback,
+      null,
+      config
+    );
+    room.songs = songs;
+    room.baseValues = baseValues;
+    room.usedSongs = usedSongs;
+    room.songsGenerated = true;
+    room.isGeneratingSongs = false;
+
+    // Shuffle songs
+    this.shuffleArray(room.songs);
+
+    // Start background generation if io is provided
+    if (io) {
+      this.continueGeneratingInBackground(roomCode, io, config);
+    }
+
+    return room;
+  }
+
+  /**
+   * Start game (songs must be generated first)
+   */
+  startGame(roomCode) {
+    const room = this.getRoom(roomCode);
+    if (!room) {
+      throw new Error('Room not found');
+    }
+
+    if (!room.songsGenerated) {
+      throw new Error('Please generate songs before starting the game');
     }
 
     if (room.gameStarted) {
@@ -129,31 +176,13 @@ class GameManager {
     }
 
     room.gameStarted = true;
-
-    // Generate only 3 songs initially to get started quickly
-    const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
-      3,
-      progressCallback
-    );
-    room.songs = songs;
-    room.baseValues = baseValues;
-    room.usedSongs = usedSongs;
-
-    // Shuffle songs
-    this.shuffleArray(room.songs);
-
-    // Start background generation if io is provided
-    if (io) {
-      this.continueGeneratingInBackground(roomCode, io);
-    }
-
     return room;
   }
 
   /**
    * Continue generating songs in the background
    */
-  continueGeneratingInBackground(roomCode, io) {
+  continueGeneratingInBackground(roomCode, io, config) {
     const room = this.getRoom(roomCode);
     if (!room || room.isGeneratingSongs) return;
 
@@ -174,7 +203,8 @@ class GameManager {
               songs: room.songs,
               baseValues: room.baseValues,
               usedSongs: room.usedSongs
-            }
+            },
+            config
           );
 
           room.songs = songs;
@@ -289,6 +319,8 @@ class GameManager {
         isHost: p.isHost
       })),
       host: room.host,
+      songsGenerated: room.songsGenerated,
+      isGeneratingSongs: room.isGeneratingSongs,
       gameStarted: room.gameStarted,
       gameEnded: room.gameEnded,
       currentSongIndex: room.currentSongIndex,
