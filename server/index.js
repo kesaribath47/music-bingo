@@ -24,12 +24,41 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const gameManager = new GameManager(process.env.CLAUDE_API_KEY);
 
+// Get local IP addresses
+function getLocalIPAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal (i.e. 127.0.0.1) and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        addresses.push(iface.address);
+      }
+    }
+  }
+
+  return addresses;
+}
+
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, '../client/build')));
 
 // REST API endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Get network info for QR code generation
+app.get('/api/network-info', (req, res) => {
+  const localIPs = getLocalIPAddresses();
+  const primaryIP = localIPs.length > 0 ? localIPs[0] : 'localhost';
+
+  res.json({
+    ip: primaryIP,
+    port: PORT,
+    url: `http://${primaryIP}:${PORT}`
+  });
 });
 
 app.post('/api/room/create', (req, res) => {
@@ -204,23 +233,6 @@ io.on('connection', (socket) => {
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
-
-// Get local IP addresses
-function getLocalIPAddresses() {
-  const interfaces = os.networkInterfaces();
-  const addresses = [];
-
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      // Skip internal (i.e. 127.0.0.1) and non-IPv4 addresses
-      if (iface.family === 'IPv4' && !iface.internal) {
-        addresses.push(iface.address);
-      }
-    }
-  }
-
-  return addresses;
-}
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎵 Music Bingo Server Started! 🎵\n`);
