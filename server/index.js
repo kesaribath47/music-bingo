@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const os = require('os');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const GameManager = require('./gameManager');
@@ -204,7 +205,34 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
 });
 
-server.listen(PORT, () => {
-  console.log(`Music Bingo server running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to play!`);
+// Get local IP addresses
+function getLocalIPAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal (i.e. 127.0.0.1) and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        addresses.push(iface.address);
+      }
+    }
+  }
+
+  return addresses;
+}
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🎵 Music Bingo Server Started! 🎵\n`);
+  console.log(`Local:    http://localhost:${PORT}`);
+
+  const localIPs = getLocalIPAddresses();
+  if (localIPs.length > 0) {
+    console.log(`\nNetwork:  (accessible from other devices on same network)`);
+    localIPs.forEach(ip => {
+      console.log(`          http://${ip}:${PORT}`);
+    });
+  }
+
+  console.log(`\nReady for players to join!\n`);
 });
