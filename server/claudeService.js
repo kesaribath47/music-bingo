@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const play = require('play-dl');
 
 /**
  * Service to generate song-number associations using Claude API
@@ -8,6 +9,23 @@ class ClaudeService {
     this.client = new Anthropic({
       apiKey: apiKey
     });
+  }
+
+  /**
+   * Search YouTube for a song and get the video ID
+   */
+  async searchYouTube(searchQuery) {
+    try {
+      const results = await play.search(searchQuery, { limit: 1, source: { youtube: 'video' } });
+      if (results && results.length > 0) {
+        const videoUrl = results[0].url;
+        const videoId = videoUrl.split('v=')[1]?.split('&')[0];
+        return videoId;
+      }
+    } catch (error) {
+      console.error('YouTube search error:', error.message);
+    }
+    return null;
   }
 
   /**
@@ -24,7 +42,9 @@ class ClaudeService {
       ? `\n\nExisting base values for actors/singers:\n${JSON.stringify(baseValues, null, 2)}\nYou MUST use these exact base values if you use any of these people. For new people, assign unused values between 1-75.`
       : '';
 
-    const prompt = `Generate a Kannada or Hindi song association for the number ${number} for a music bingo game.
+    const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
+
+Generate a Kannada or Hindi song association for the number ${number} for a music bingo game.
 
 The clue should be a mathematical equation using base values assigned to actors and singers.
 
@@ -42,7 +62,7 @@ Requirements:
 - Assign base values (1-75) to each person involved
 - The song should be available on YouTube${usedSongsText}${baseValuesText}
 
-Respond in JSON format:
+Output ONLY this JSON structure with no additional text:
 {
   "number": ${number},
   "song": "Song Title (in English or native script)",
@@ -70,12 +90,20 @@ Respond in JSON format:
 
       const responseText = message.content[0].text;
 
-      // Extract JSON from response (handle markdown code blocks)
-      let jsonText = responseText;
-      if (responseText.includes('```json')) {
-        jsonText = responseText.split('```json')[1].split('```')[0].trim();
-      } else if (responseText.includes('```')) {
-        jsonText = responseText.split('```')[1].split('```')[0].trim();
+      // Extract JSON from response (handle markdown code blocks and extra text)
+      let jsonText = responseText.trim();
+
+      // Remove markdown code blocks if present
+      if (jsonText.includes('```json')) {
+        jsonText = jsonText.split('```json')[1].split('```')[0].trim();
+      } else if (jsonText.includes('```')) {
+        jsonText = jsonText.split('```')[1].split('```')[0].trim();
+      }
+
+      // Try to find JSON object in the response
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[0];
       }
 
       const association = JSON.parse(jsonText);
@@ -85,6 +113,12 @@ Respond in JSON format:
         association.entities.forEach(entity => {
           baseValues[entity.name] = entity.baseValue;
         });
+      }
+
+      // Search YouTube for the song to get video ID
+      if (association.youtubeSearch) {
+        const videoId = await this.searchYouTube(association.youtubeSearch);
+        association.youtubeVideoId = videoId;
       }
 
       return association;
@@ -103,6 +137,7 @@ Respond in JSON format:
         clue: `Value 1 + Value 2`,
         year: 2020,
         youtubeSearch: `hindi songs ${2020}`,
+        youtubeVideoId: null,
         entities: [
           { name: 'Person A', role: 'Actor', baseValue: fallbackValue1 },
           { name: 'Person B', role: 'Actor', baseValue: fallbackValue2 }

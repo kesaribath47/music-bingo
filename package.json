@@ -12,11 +12,12 @@
     "install-all": "npm install && cd client && npm install"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "socket.io": "^4.8.1",
     "@anthropic-ai/sdk": "^0.32.1",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "cors": "^2.8.5"
+    "express": "^4.21.2",
+    "play-dl": "^1.9.7",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

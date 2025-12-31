@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
         totalSongs: room.songs.length
       });
 
-      console.log(`Playing song ${room.currentSongIndex + 1} in room ${roomCode}: ${song.artist} - ${song.song}`);
+      // Song playing - details hidden for privacy
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
