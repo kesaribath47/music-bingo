@@ -66,9 +66,15 @@ IMPORTANT RULES:
 2. If music director is a pair (e.g., "Jatin-Lalit", "Vishal-Shekhar", "Sajid-Wajid"), DO NOT use them in the clue. Use only solo music directors.
 3. Use proper terminology: "Lead Male Actor", "Lead Female Actor", "Male Singer", "Female Singer", "Music Director"
 4. When using alphabet values, clearly state which letter you're using in the clue
-5. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
-6. The song must be from ${startYear} to ${endYear}
-7. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
+5. CRITICAL - ONLY FAMOUS ACTORS AND BLOCKBUSTERS:
+   * Choose songs ONLY from BLOCKBUSTER movies with massive commercial success
+   * Use ONLY A-list, superstar actors that everyone knows (e.g., Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Ranbir Kapoor, Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt)
+   * Avoid lesser-known or regional actors - stick to pan-India megastars
+   * Movies should be major hits that broke box office records or became cultural phenomena
+   * Prefer iconic songs that everyone remembers and sings along to
+6. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
+7. The song must be from ${startYear} to ${endYear}
+8. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
 
 Example 1 (Direct):
 Target: 45, Song: "Tum Hi Ho" from Aashiqui 2 (2013)
