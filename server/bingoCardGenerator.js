@@ -1,17 +1,17 @@
 /**
  * Generates bingo cards with equal probability of winning
- * Traditional 5x5 format with numbers 1-75
- * B column: 1-15, I column: 16-30, N column: 31-45, G column: 46-60, O column: 61-75
+ * 5x5 format with numbers 1-50 (matching 50 movies)
+ * B column: 1-10, I column: 11-20, N column: 21-30, G column: 31-40, O column: 41-50
  */
 
 class BingoCardGenerator {
   constructor() {
     this.columnRanges = {
-      B: [1, 15],
-      I: [16, 30],
-      N: [31, 45],
-      G: [46, 60],
-      O: [61, 75]
+      B: [1, 10],
+      I: [11, 20],
+      N: [21, 30],
+      G: [31, 40],
+      O: [41, 50]
     };
   }
 
