@@ -6,10 +6,10 @@ const ClaudeService = require('./claudeService');
  * Manages game rooms and state
  */
 class GameManager {
-  constructor(claudeApiKey, tmdbApiKey = null) {
+  constructor(claudeApiKey, tmdbApiKey = null, youtubeApiKey = null) {
     this.rooms = new Map();
     this.cardGenerator = new BingoCardGenerator();
-    this.claudeService = new ClaudeService(claudeApiKey, tmdbApiKey);
+    this.claudeService = new ClaudeService(claudeApiKey, tmdbApiKey, youtubeApiKey);
   }
 
   /**

@@ -1,16 +1,16 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const DeezerService = require('./deezerService');
+const YouTubeService = require('./youtubeService');
 const IMDbService = require('./imdbService');
 
 /**
  * Service to generate song-number associations using Claude API
  */
 class ClaudeService {
-  constructor(apiKey, tmdbApiKey = null) {
+  constructor(apiKey, tmdbApiKey = null, youtubeApiKey = null) {
     this.client = new Anthropic({
       apiKey: apiKey
     });
-    this.deezerService = new DeezerService();
+    this.youtubeService = new YouTubeService(youtubeApiKey);
     this.imdbService = new IMDbService(tmdbApiKey);
   }
 
@@ -153,6 +153,10 @@ Output ONLY this JSON structure with no additional text:
       ? `\n\nAlready used songs from this movie (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
 
+    const languageNote = movieEntry.language === 'Kannada'
+      ? `\n\nNOTE: This is a KANNADA song. It should be available on official Kannada music YouTube channels like Anand Audio or Lahari Music.`
+      : `\n\nNOTE: This is a HINDI/Bollywood song. It should be available on official music YouTube channels like T-Series, Zee Music Company, Sony Music India, or Tips Official.`;
+
     const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
 
 Generate a popular, chart-topping song from the movie "${movieEntry.movie}" (${movieEntry.year}).
@@ -160,8 +164,9 @@ Generate a popular, chart-topping song from the movie "${movieEntry.movie}" (${m
 REQUIREMENTS:
 1. The song MUST be from the movie "${movieEntry.movie}"
 2. Choose an ICONIC, chart-topping song that everyone remembers and sings along to
-3. Provide the singer/artist name
-4. Names must be in English/romanized format ONLY${usedSongsText}
+3. The song should be popular enough to be on official YouTube music channels
+4. Provide the singer/artist name
+5. Names must be in English/romanized format ONLY${usedSongsText}${languageNote}
 
 Example Output:
 {
@@ -218,23 +223,33 @@ Output ONLY this JSON structure with no additional text:
 
       console.log(`  ✓ Generated song: "${association.song}" by ${association.artist}`);
 
-      // Search for music preview using Deezer
-      console.log('  🔍 Searching Deezer for preview...');
-      const musicResult = await this.deezerService.searchSong(
+      // Search for music video on YouTube
+      console.log('  🔍 Searching YouTube for video...');
+      const youtubeResult = await this.youtubeService.searchSong(
         association.artist,
         association.song,
-        association.year,
-        association.movie // Pass movie name to help find film songs
+        association.movie,
+        association.language,
+        association.year
       );
 
-      if (musicResult && musicResult.previewUrl) {
-        association.previewUrl = musicResult.previewUrl;
-        association.musicLink = musicResult.deezerLink;
-        association.albumCover = musicResult.albumCover;
-        console.log(`  ✅ Found preview on Deezer`);
+      if (youtubeResult && youtubeResult.videoId) {
+        // Generate random start time (skip first 10% and last 10% of video)
+        const duration = youtubeResult.duration || 180;
+        const minStart = Math.floor(duration * 0.1);
+        const maxStart = Math.floor(duration * 0.5); // Start within first 50% of video
+        const randomStart = Math.floor(Math.random() * (maxStart - minStart)) + minStart;
+
+        association.youtubeVideoId = youtubeResult.videoId;
+        association.youtubeTitle = youtubeResult.title;
+        association.youtubeChannel = youtubeResult.channelTitle;
+        association.startTime = randomStart;
+        association.duration = duration;
+
+        console.log(`  ✅ Found on YouTube: ${youtubeResult.channelTitle} (start at ${randomStart}s)`);
         return association;
       } else {
-        console.log(`❌ No preview found on any service for: ${association.artist} - ${association.song}`);
+        console.log(`❌ No YouTube video found for: ${association.artist} - ${association.song}`);
 
         // Retry with a different song if we haven't exceeded max retries
         if (retryCount < maxRetries) {
@@ -243,8 +258,8 @@ Output ONLY this JSON structure with no additional text:
           usedSongs.push(association.song);
           return await this.generateSongFromMovie(movieEntry, usedSongs, config, retryCount + 1);
         } else {
-          console.warn(`   ⚠️  Max retries reached. Returning song without preview.`);
-          association.previewUrl = null;
+          console.warn(`   ⚠️  Max retries reached. Returning song without video.`);
+          association.youtubeVideoId = null;
           return association;
         }
       }
@@ -260,8 +275,8 @@ Output ONLY this JSON structure with no additional text:
         actors: movieEntry.actors,
         year: movieEntry.year,
         language: movieEntry.language,
-        previewUrl: null,
-        deezerLink: null
+        youtubeVideoId: null,
+        startTime: 0
       };
     }
   }
