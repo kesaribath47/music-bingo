@@ -15,28 +15,37 @@ class DeezerService {
    * @param {string} artist - Artist name
    * @param {string} song - Song title
    * @param {number} year - Release year (optional, for filtering)
+   * @param {string} movie - Movie name (optional, helps find film songs)
    * @returns {Object} - { previewUrl, duration, deezerLink }
    */
-  async searchSong(artist, song, year = null) {
+  async searchSong(artist, song, year = null, movie = null) {
     try {
-      console.log(`Searching Deezer for: "${song}" by "${artist}" (${year || 'any year'})`);
+      console.log(`Searching Deezer for: "${song}" from "${movie}" by "${artist}" (${year || 'any year'})`);
 
-      // Strategy 1: Try exact artist + track search
-      let results = await this.trySearch(`artist:"${artist}" track:"${song}"`);
+      // Strategy 1: Try with movie name for film songs
+      let results = null;
+      if (movie) {
+        results = await this.trySearch(`${song} ${movie} ${artist}`);
+      }
 
-      // Strategy 2: If no results, try without quotes (more flexible)
+      // Strategy 2: Try exact artist + track search
+      if (!results || results.length === 0) {
+        results = await this.trySearch(`artist:"${artist}" track:"${song}"`);
+      }
+
+      // Strategy 3: If no results, try without quotes (more flexible)
       if (!results || results.length === 0) {
         console.log('  → Trying flexible search without quotes...');
         results = await this.trySearch(`${artist} ${song}`);
       }
 
-      // Strategy 3: If still no results, try just the song title
+      // Strategy 4: If still no results, try just the song title
       if (!results || results.length === 0) {
         console.log('  → Trying song title only...');
         results = await this.trySearch(song);
       }
 
-      // Strategy 4: Try with first artist name only (in case of multiple artists)
+      // Strategy 5: Try with first artist name only (in case of multiple artists)
       if (!results || results.length === 0) {
         const firstArtist = artist.split(',')[0].trim();
         if (firstArtist !== artist) {
@@ -45,14 +54,14 @@ class DeezerService {
         }
       }
 
-      // Strategy 5: Try just the song name with less strict search
+      // Strategy 6: Try just the song name with less strict search
       if (!results || results.length === 0) {
         console.log('  → Trying relaxed song search...');
         const songWords = song.split(' ').slice(0, 2).join(' '); // First 2 words
         results = await this.trySearch(songWords);
       }
 
-      // Strategy 6: Try artist's last name + song
+      // Strategy 7: Try artist's last name + song
       if (!results || results.length === 0) {
         const artistParts = artist.split(' ');
         if (artistParts.length > 1) {

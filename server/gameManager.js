@@ -25,15 +25,16 @@ class GameManager {
       players: new Map(),
       host: null,
       prizeManager: new PrizeManager(),
-      songs: [],
-      usedSongs: [],
+      movies: [], // List of 50 movies numbered 1-50
+      songs: [], // Songs that have been played
+      usedMovieNumbers: [], // Track which movies have been used (don't repeat)
       songConfig: null, // { startYear, endYear, languages }
-      songsGenerated: false,
+      moviesGenerated: false,
       currentSongIndex: -1,
       calledNumbers: [],
       gameStarted: false,
       gameEnded: false,
-      isGeneratingSongs: false,
+      isGeneratingMovies: false,
       createdAt: Date.now()
     };
 
@@ -114,50 +115,38 @@ class GameManager {
   }
 
   /**
-   * Generate songs for a room
+   * Generate movie list for a room
    * @param {string} roomCode
    * @param {object} config - { startYear, endYear, languages }
    * @param {function} progressCallback - Called with (current, total) for progress updates
-   * @param {object} io - Socket.io instance for background generation events
    */
-  async generateSongs(roomCode, config, progressCallback = null, io = null) {
+  async generateMovies(roomCode, config, progressCallback = null) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
     }
 
-    if (room.songsGenerated) {
-      throw new Error('Songs already generated');
+    if (room.moviesGenerated) {
+      throw new Error('Movies already generated');
     }
 
-    room.isGeneratingSongs = true;
+    room.isGeneratingMovies = true;
     room.songConfig = config;
 
-    // Generate only 3 songs initially to get started quickly
-    const { songs, usedSongs } = await this.claudeService.generateGameSongs(
-      3,
-      progressCallback,
-      null,
-      config
-    );
-    room.songs = songs;
-    room.usedSongs = usedSongs;
-    room.songsGenerated = true;
-    room.isGeneratingSongs = false;
+    // Generate 50 movies numbered 1-50
+    const movies = await this.claudeService.generateMovieList(50, config);
 
-    // Shuffle songs
-    this.shuffleArray(room.songs);
+    room.movies = movies;
+    room.moviesGenerated = true;
+    room.isGeneratingMovies = false;
 
-    // Start background generation if io is provided
-    if (io) {
-      this.continueGeneratingInBackground(roomCode, io, config);
-    }
+    console.log(`\n✅ Generated ${movies.length} movies for room ${roomCode}`);
 
     return room;
   }
 
   /**
-   * Start game (songs must be generated first)
+   * Start game (movies must be generated first)
    */
   startGame(roomCode) {
     const room = this.getRoom(roomCode);
@@ -165,8 +154,8 @@ class GameManager {
       throw new Error('Room not found');
     }
 
-    if (!room.songsGenerated) {
-      throw new Error('Please generate songs before starting the game');
+    if (!room.moviesGenerated) {
+      throw new Error('Please generate movies before starting the game');
     }
 
     if (room.gameStarted) {
@@ -178,75 +167,48 @@ class GameManager {
   }
 
   /**
-   * Continue generating songs in the background
+   * Play next song (generates a song from a random unused movie)
    */
-  continueGeneratingInBackground(roomCode, io, config) {
-    const room = this.getRoom(roomCode);
-    if (!room || room.isGeneratingSongs) return;
-
-    room.isGeneratingSongs = true;
-
-    // Generate songs in background (non-blocking)
-    (async () => {
-      try {
-        // Continue generating until we have enough or prizes are all claimed
-        while (room.songs.length < 75 && !room.gameEnded) {
-          const currentCount = room.songs.length;
-
-          // Generate 5 more songs at a time
-          const { songs, usedSongs } = await this.claudeService.generateGameSongs(
-            5,
-            null, // No progress callback for background generation
-            {
-              songs: room.songs,
-              usedSongs: room.usedSongs
-            },
-            config
-          );
-
-          room.songs = songs;
-          room.usedSongs = usedSongs;
-
-          // Notify clients that more songs are available
-          const newSongsCount = room.songs.length - currentCount;
-          if (newSongsCount > 0) {
-            io.to(roomCode).emit('songs-generated', {
-              totalSongs: room.songs.length,
-              newCount: newSongsCount
-            });
-          }
-
-          // Stop if game ended or all prizes claimed
-          if (room.gameEnded || room.songs.length >= 75) {
-            break;
-          }
-        }
-      } catch (error) {
-        console.error('Background song generation error:', error);
-      } finally {
-        room.isGeneratingSongs = false;
-      }
-    })();
-  }
-
-  /**
-   * Play next song
-   */
-  playNextSong(roomCode) {
+  async playNextSong(roomCode) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
     }
 
-    room.currentSongIndex++;
+    if (room.gameEnded) {
+      return null;
+    }
 
-    if (room.currentSongIndex >= room.songs.length) {
+    // Get movies that haven't been used yet
+    const availableMovies = room.movies.filter(
+      movie => !room.usedMovieNumbers.includes(movie.number)
+    );
+
+    if (availableMovies.length === 0) {
+      console.log('All movies have been used!');
       room.gameEnded = true;
       return null;
     }
 
-    const song = room.songs[room.currentSongIndex];
-    room.calledNumbers.push(song.number);
+    // Pick a random movie from available movies
+    const randomMovie = availableMovies[Math.floor(Math.random() * availableMovies.length)];
+
+    // Generate a song from that movie
+    console.log(`\n🎵 Generating song from movie #${randomMovie.number}: ${randomMovie.movie}...`);
+    const song = await this.claudeService.generateSongFromMovie(
+      randomMovie,
+      [], // No need to track used songs since we're not repeating movies
+      room.songConfig
+    );
+
+    room.songs.push(song);
+    room.usedMovieNumbers.push(song.number); // Mark this movie as used
+    room.currentSongIndex = room.songs.length - 1;
+
+    // Add the movie number to called numbers
+    if (!room.calledNumbers.includes(song.number)) {
+      room.calledNumbers.push(song.number);
+    }
 
     return song;
   }
@@ -315,15 +277,16 @@ class GameManager {
         isHost: p.isHost
       })),
       host: room.host,
-      songsGenerated: room.songsGenerated,
-      isGeneratingSongs: room.isGeneratingSongs,
+      moviesGenerated: room.moviesGenerated,
+      isGeneratingMovies: room.isGeneratingMovies,
       gameStarted: room.gameStarted,
       gameEnded: room.gameEnded,
       currentSongIndex: room.currentSongIndex,
       totalSongs: room.songs.length,
       calledNumbers: room.calledNumbers,
       prizes: room.prizeManager.getAllPrizes(),
-      songs: room.songs // Send songs array for movie numbers display
+      movies: room.movies, // Send all 50 movies
+      songs: room.songs // Send played songs for history
     };
   }
 

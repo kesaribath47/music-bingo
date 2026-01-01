@@ -108,23 +108,23 @@ io.on('connection', (socket) => {
       }
 
       if (room.host !== socket.id) {
-        socket.emit('error', { message: 'Only host can generate songs' });
+        socket.emit('error', { message: 'Only host can generate movies' });
         return;
       }
 
-      // Progress callback for song generation
+      // Progress callback for movie generation
       const progressCallback = (current, total) => {
         io.to(roomCode).emit('generation-progress', { current, total });
       };
 
-      // Generate songs with progress updates
-      await gameManager.generateSongs(roomCode, config, progressCallback, io);
+      // Generate 50 movies with progress updates
+      await gameManager.generateMovies(roomCode, config, progressCallback);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);
       io.to(roomCode).emit('songs-generation-complete', roomState);
 
-      console.log(`Songs generated in room ${roomCode}`);
+      console.log(`Movies generated in room ${roomCode}`);
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
@@ -159,7 +159,7 @@ io.on('connection', (socket) => {
   });
 
   // Play next song (host only)
-  socket.on('play-next-song', ({ roomCode }) => {
+  socket.on('play-next-song', async ({ roomCode }) => {
     try {
       const room = gameManager.getRoom(roomCode);
 
@@ -173,11 +173,12 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const song = gameManager.playNextSong(roomCode);
+      // Generate a song from a random movie in the list
+      const song = await gameManager.playNextSong(roomCode);
 
       if (!song) {
         io.to(roomCode).emit('game-ended', {
-          message: 'All songs played! Game over.',
+          message: 'Game over!',
           prizes: room.prizeManager.getAllPrizes()
         });
         return;
@@ -193,7 +194,7 @@ io.on('connection', (socket) => {
         totalSongs: room.songs.length
       });
 
-      // Song playing - details hidden for privacy
+      console.log(`Playing song #${song.number}: "${song.song}" from ${song.movie}`);
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
