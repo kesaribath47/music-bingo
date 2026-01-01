@@ -39,7 +39,8 @@ The clue should be a mathematical equation using base values assigned to the ACT
 
 CRITICAL - CLUE VARIATION RULES:
 - The clue MUST be based on the real people involved in this specific song
-- You can use ANY combination of: Male Singer, Female Singer, Music Director, Lead Male Actor, Lead Female Actor
+- You can ONLY use: Male Singer, Female Singer, Lead Male Actor, Lead Female Actor
+- DO NOT use Music Director in clues
 - The clue should VARY from song to song - BE VERY CREATIVE!
 - You can use ALPHABET VALUES: First letter of a name = position in alphabet (A=1, B=2, ... Z=26)
 
@@ -48,33 +49,53 @@ CREATIVE CLUE PATTERNS (use different ones for variety):
    * "Male Singer + Female Singer"
    * "Lead Male Actor + Lead Female Actor"
    * "Lead Male Actor + Male Singer"
-   * "Music Director + Female Singer"
-   * "Lead Female Actor + Music Director + Male Singer"
+   * "Lead Female Actor + Female Singer"
+   * "Lead Male Actor + Lead Female Actor + Male Singer"
+   * "Male Singer + Female Singer + Lead Female Actor"
 
 2. Alphabet-based clues (VERY CREATIVE):
    * "First letter of Lead Male Actor's first name + Lead Female Actor" (if Shah Rukh Khan, S=19)
    * "First letter of Male Singer's last name + Lead Male Actor"
-   * "First letter of Music Director's name + Male Singer + Female Singer"
+   * "First letter of Female Singer's name + Male Singer + Lead Female Actor"
    * "Lead Male Actor + First letter of Lead Female Actor's first name"
+   * "Male Singer + First letter of Lead Male Actor's first name"
 
 3. Mixed combinations:
-   * "Music Director + First letter of Male Singer's first name + Lead Female Actor"
+   * "Lead Female Actor + First letter of Male Singer's first name + Lead Male Actor"
    * "Lead Male Actor + Lead Female Actor + First letter of Movie name"
+   * "Male Singer + First letter of Lead Female Actor's name"
 
 IMPORTANT RULES:
 1. VERIFY YOUR MATH: The calculation MUST equal ${number} exactly!
-2. If music director is a pair (e.g., "Jatin-Lalit", "Vishal-Shekhar", "Sajid-Wajid"), DO NOT use them in the clue. Use only solo music directors.
-3. Use proper terminology: "Lead Male Actor", "Lead Female Actor", "Male Singer", "Female Singer", "Music Director"
-4. When using alphabet values, clearly state which letter you're using in the clue
-5. CRITICAL - ONLY FAMOUS ACTORS AND BLOCKBUSTERS:
+2. Use proper terminology: "Lead Male Actor", "Lead Female Actor", "Male Singer", "Female Singer"
+3. When using alphabet values, clearly state which letter you're using in the clue
+4. CRITICAL - ONLY A-LIST MEGASTARS FOR ALL ROLES:
+
+   For ACTORS (Hindi):
+   * ONLY use: Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Akshay Kumar, Ranbir Kapoor, Ranveer Singh, Varun Dhawan
+   * ONLY use: Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt, Anushka Sharma, Kajol, Madhuri Dixit, Aishwarya Rai
+
+   For ACTORS (Kannada):
+   * ONLY use: Yash, Sudeep, Puneeth Rajkumar, Shiva Rajkumar, Upendra, Darshan
+   * ONLY use: Rashmika Mandanna, Radhika Pandit, Ramya, Rachita Ram
+
+   For SINGERS (Hindi):
+   * ONLY use: Arijit Singh, Sonu Nigam, Atif Aslam, Vishal Dadlani, Shaan, KK, Mohit Chauhan, Armaan Malik
+   * ONLY use: Shreya Ghoshal, Sunidhi Chauhan, Neha Kakkar, Alka Yagnik, Kavita Krishnamurthy
+
+   For SINGERS (Kannada):
+   * ONLY use: Sonu Nigam, Vijay Prakash, Armaan Malik, Raghu Dixit, Harikrishna, Arjun Janya
+   * ONLY use: Shreya Ghoshal, Sunidhi Chauhan, Chitra, Vani Jairam
+
+   * NO semi-famous or lesser-known people AT ALL
+   * ONLY absolute megastars that EVERYONE knows
    * Choose songs ONLY from BLOCKBUSTER movies with massive commercial success
-   * Use ONLY A-list, superstar actors that everyone knows (e.g., Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Ranbir Kapoor, Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt)
-   * Avoid lesser-known or regional actors - stick to pan-India megastars
-   * Movies should be major hits that broke box office records or became cultural phenomena
+   * Movies should be major hits that broke box office records
    * Prefer iconic songs that everyone remembers and sings along to
-6. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
-7. The song must be from ${startYear} to ${endYear}
-8. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
+
+5. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
+6. The song must be from ${startYear} to ${endYear}
+7. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
 
 Example 1 (Direct):
 Target: 45, Song: "Tum Hi Ho" from Aashiqui 2 (2013)
@@ -113,11 +134,10 @@ Output ONLY this JSON structure with no additional text:
   "artist": "Singer Name(s)",
   "movie": "Movie Name",
   "actors": ["Lead Male Actor Name", "Lead Female Actor Name"],
-  "musicDirector": "Music Director Name (null if paired like Jatin-Lalit)",
   "clue": "Description of equation using proper terminology",
   "year": 2013,
   "entities": [
-    {"name": "Person Name", "role": "Lead Male Actor|Lead Female Actor|Male Singer|Female Singer|Music Director", "baseValue": 25}
+    {"name": "Person Name", "role": "Lead Male Actor|Lead Female Actor|Male Singer|Female Singer", "baseValue": 25}
   ],
   "calculation": "25 + 20"
 }`;
