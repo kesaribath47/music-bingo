@@ -20,10 +20,11 @@ class ClaudeService {
    * Returns array of { number, movie, year, language, actors }
    */
   generateMovieList(config = {}) {
-    const { languages = ['Hindi', 'Kannada'] } = config;
-    console.log(`\n🎬 Generating 50 movies instantly from ${languages.join(', ')} catalog...`);
+    const { languages = ['Hindi', 'Kannada'], startYear, endYear } = config;
+    const yearInfo = startYear && endYear ? ` (${startYear}-${endYear})` : '';
+    console.log(`\n🎬 Generating 50 movies instantly from ${languages.join(', ')} catalog${yearInfo}...`);
 
-    const movies = generateInstantMovieList(languages);
+    const movies = generateInstantMovieList(languages, startYear, endYear);
     console.log(`\n✅ Generated ${movies.length} movies instantly!`);
 
     return movies;

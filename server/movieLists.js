@@ -91,34 +91,62 @@ module.exports = {
   /**
    * Generate 50 movies instantly by selecting from predefined lists
    * @param {Array} languages - Array of languages ['Hindi', 'Kannada']
+   * @param {Number} startYear - Start year for filtering (optional)
+   * @param {Number} endYear - End year for filtering (optional)
    * @returns {Array} - Array of 50 movies numbered 1-50
    */
-  generateInstantMovieList(languages) {
-    let availableMovies = [];
+  generateInstantMovieList(languages, startYear = null, endYear = null) {
+    let selectedMovies = [];
 
-    // Add movies based on selected languages
-    if (languages.includes('Hindi')) {
-      availableMovies = [...availableMovies, ...hindiMovies];
-    }
-    if (languages.includes('Kannada')) {
-      availableMovies = [...availableMovies, ...kannadaMovies];
-    }
-    if (languages.includes('English')) {
-      // For now, we don't have English movies, so just use Hindi
-      availableMovies = [...availableMovies, ...hindiMovies.slice(0, 10)];
+    // Filter movies by year range if specified
+    const filterByYear = (movies) => {
+      if (!startYear && !endYear) return movies;
+      return movies.filter(m => {
+        if (startYear && m.year < startYear) return false;
+        if (endYear && m.year > endYear) return false;
+        return true;
+      });
+    };
+
+    const filteredHindi = filterByYear(hindiMovies);
+    const filteredKannada = filterByYear(kannadaMovies);
+
+    // If both languages selected, mix them evenly
+    if (languages.includes('Hindi') && languages.includes('Kannada')) {
+      // Take 25 Hindi and 25 Kannada
+      const shuffledHindi = this.shuffleArray([...filteredHindi]);
+      const shuffledKannada = this.shuffleArray([...filteredKannada]);
+
+      const hindiPart = shuffledHindi.slice(0, 25);
+      const kannadaPart = shuffledKannada.slice(0, 25);
+
+      // Interleave them for variety
+      for (let i = 0; i < 25; i++) {
+        if (hindiPart[i]) selectedMovies.push(hindiPart[i]);
+        if (kannadaPart[i]) selectedMovies.push(kannadaPart[i]);
+      }
+    } else if (languages.includes('Hindi')) {
+      // Only Hindi
+      const shuffled = this.shuffleArray([...filteredHindi]);
+      selectedMovies = shuffled.slice(0, 50);
+    } else if (languages.includes('Kannada')) {
+      // Only Kannada - repeat if needed
+      const shuffled = this.shuffleArray([...filteredKannada]);
+      while (selectedMovies.length < 50) {
+        selectedMovies.push(...shuffled);
+      }
+      selectedMovies = selectedMovies.slice(0, 50);
+    } else if (languages.includes('English')) {
+      // For now, use Hindi movies
+      const shuffled = this.shuffleArray([...filteredHindi]);
+      selectedMovies = shuffled.slice(0, 50);
     }
 
-    // Shuffle and take first 50
-    const shuffled = this.shuffleArray([...availableMovies]);
-    const selected = shuffled.slice(0, Math.min(50, shuffled.length));
-
-    // If we don't have 50 movies, repeat some
-    while (selected.length < 50) {
-      selected.push(shuffled[selected.length % shuffled.length]);
-    }
+    // Shuffle the final list
+    selectedMovies = this.shuffleArray(selectedMovies);
 
     // Assign numbers 1-50
-    return selected.map((movie, index) => ({
+    return selectedMovies.map((movie, index) => ({
       number: index + 1,
       ...movie,
       actors: [] // Will be populated when generating songs

@@ -130,14 +130,17 @@ class GameManager {
     }
 
     room.songConfig = config;
+    room.isGeneratingMovies = true; // Set flag before generation
 
     // Generate 50 movies instantly from predefined lists
     const movies = this.claudeService.generateMovieList(config);
 
     room.movies = movies;
     room.moviesGenerated = true;
+    room.isGeneratingMovies = false; // Clear flag after generation
 
     console.log(`\n✅ Generated ${movies.length} movies instantly for room ${roomCode}`);
+    console.log(`   moviesGenerated=${room.moviesGenerated}, isGeneratingMovies=${room.isGeneratingMovies}`);
 
     return room;
   }
