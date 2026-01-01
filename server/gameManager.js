@@ -349,7 +349,8 @@ class GameManager {
       calledNumbers: room.calledNumbers,
       prizes: room.prizeManager.getAllPrizes(),
       baseValues: room.baseValues,
-      entities: entities // Add entities array with images
+      entities: entities, // Add entities array with images
+      songs: room.songs // Add full songs array for called numbers modal
     };
   }
 
