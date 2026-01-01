@@ -115,11 +115,12 @@ class GameManager {
   }
 
   /**
-   * Generate movie list for a room (instant - no API calls)
+   * Generate movie list for a room with Deezer preview validation
    * @param {string} roomCode
    * @param {object} config - { startYear, endYear, languages }
+   * @param {function} progressCallback - Progress callback
    */
-  generateMovies(roomCode, config) {
+  async generateMovies(roomCode, config, progressCallback = null) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
@@ -132,14 +133,14 @@ class GameManager {
     room.songConfig = config;
     room.isGeneratingMovies = true; // Set flag before generation
 
-    // Generate 50 movies instantly from predefined lists
-    const movies = this.claudeService.generateMovieList(config);
+    // Generate 50 movies with Deezer preview validation
+    const movies = await this.claudeService.generateMovieList(config, progressCallback);
 
     room.movies = movies;
     room.moviesGenerated = true;
     room.isGeneratingMovies = false; // Clear flag after generation
 
-    console.log(`\n✅ Generated ${movies.length} movies instantly for room ${roomCode}`);
+    console.log(`\n✅ Generated ${movies.length} movies with validated previews for room ${roomCode}`);
     console.log(`   moviesGenerated=${room.moviesGenerated}, isGeneratingMovies=${room.isGeneratingMovies}`);
 
     return room;

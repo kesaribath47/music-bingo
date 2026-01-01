@@ -114,12 +114,17 @@ io.on('connection', (socket) => {
 
       console.log(`🎬 Generating movies for room ${roomCode}...`);
 
-      // Generate 50 movies instantly (no API calls)
-      gameManager.generateMovies(roomCode, config);
+      // Progress callback to emit updates to client
+      const progressCallback = (progress) => {
+        io.to(roomCode).emit('generation-progress', progress);
+      };
+
+      // Generate 50 movies with Deezer preview validation (async)
+      await gameManager.generateMovies(roomCode, config, progressCallback);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);
-      console.log(`✅ Movies generated instantly in room ${roomCode}`);
+      console.log(`✅ Movies generated with validated previews in room ${roomCode}`);
       console.log(`   moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
       console.log(`   Emitting 'songs-generation-complete' to room ${roomCode}`);
 

@@ -16,18 +16,67 @@ class ClaudeService {
   }
 
   /**
-   * Generate a list of 50 movies instantly from predefined lists
+   * Generate a list of 50 movies with verified Deezer previews
    * Returns array of { number, movie, year, language, actors }
    */
-  generateMovieList(config = {}) {
+  async generateMovieList(config = {}, progressCallback = null) {
     const { languages = ['Hindi', 'Kannada'], startYear, endYear } = config;
     const yearInfo = startYear && endYear ? ` (${startYear}-${endYear})` : '';
-    console.log(`\n🎬 Generating 50 movies instantly from ${languages.join(', ')} catalog${yearInfo}...`);
+    console.log(`\n🎬 Generating 50 movies with Deezer preview validation from ${languages.join(', ')} catalog${yearInfo}...`);
 
-    const movies = generateInstantMovieList(languages, startYear, endYear);
-    console.log(`\n✅ Generated ${movies.length} movies instantly!`);
+    // Generate a larger pool of movies to validate
+    const candidateMovies = generateInstantMovieList(languages, startYear, endYear, 100); // Get 100 candidates
+    console.log(`📋 Got ${candidateMovies.length} candidate movies to validate...`);
 
-    return movies;
+    const validatedMovies = [];
+    let checkedCount = 0;
+
+    for (const movie of candidateMovies) {
+      if (validatedMovies.length >= 50) {
+        break; // We have enough
+      }
+
+      checkedCount++;
+      console.log(`\n🔍 [${checkedCount}/${candidateMovies.length}] Validating: ${movie.movie} (${movie.year})`);
+
+      // Report progress
+      if (progressCallback) {
+        progressCallback({
+          current: validatedMovies.length,
+          total: 50,
+          checking: movie.movie
+        });
+      }
+
+      try {
+        // Generate a song for this movie
+        const song = await this.generateSongFromMovie(movie, [], config, 0);
+
+        // Check if it has a preview URL
+        if (song && song.previewUrl) {
+          validatedMovies.push(movie);
+          console.log(`   ✅ Valid! (${validatedMovies.length}/50 confirmed)`);
+        } else {
+          console.log(`   ❌ No Deezer preview available, skipping...`);
+        }
+      } catch (error) {
+        console.log(`   ❌ Error validating: ${error.message}`);
+      }
+
+      // Small delay to avoid rate limiting
+      if (checkedCount % 5 === 0) {
+        await this.sleep(1000); // 1 second pause every 5 checks
+      }
+    }
+
+    // Renumber the validated movies 1-50
+    const finalMovies = validatedMovies.slice(0, 50).map((movie, index) => ({
+      ...movie,
+      number: index + 1
+    }));
+
+    console.log(`\n✅ Generated ${finalMovies.length} movies with verified Deezer previews!`);
+    return finalMovies;
   }
 
   /**

@@ -101,13 +101,14 @@ module.exports = {
   kannadaMovies,
 
   /**
-   * Generate 50 movies instantly by selecting from predefined lists
+   * Generate movies instantly by selecting from predefined lists
    * @param {Array} languages - Array of languages ['Hindi', 'Kannada']
    * @param {Number} startYear - Start year for filtering (optional)
    * @param {Number} endYear - End year for filtering (optional)
-   * @returns {Array} - Array of 50 movies numbered 1-50
+   * @param {Number} count - Number of movies to generate (default 50)
+   * @returns {Array} - Array of movies numbered 1-N
    */
-  generateInstantMovieList(languages, startYear = null, endYear = null) {
+  generateInstantMovieList(languages, startYear = null, endYear = null, count = 50) {
     let selectedMovies = [];
 
     // Filter movies by year range if specified
@@ -125,39 +126,41 @@ module.exports = {
 
     // If both languages selected, mix them evenly
     if (languages.includes('Hindi') && languages.includes('Kannada')) {
-      // Take 25 Hindi and 25 Kannada
+      // Take equal parts from each language
+      const halfCount = Math.ceil(count / 2);
       const shuffledHindi = shuffleArray([...filteredHindi]);
       const shuffledKannada = shuffleArray([...filteredKannada]);
 
-      const hindiPart = shuffledHindi.slice(0, 25);
-      const kannadaPart = shuffledKannada.slice(0, 25);
+      const hindiPart = shuffledHindi.slice(0, halfCount);
+      const kannadaPart = shuffledKannada.slice(0, halfCount);
 
       // Interleave them for variety
-      for (let i = 0; i < 25; i++) {
+      const maxLength = Math.max(hindiPart.length, kannadaPart.length);
+      for (let i = 0; i < maxLength; i++) {
         if (hindiPart[i]) selectedMovies.push(hindiPart[i]);
         if (kannadaPart[i]) selectedMovies.push(kannadaPart[i]);
       }
     } else if (languages.includes('Hindi')) {
       // Only Hindi
       const shuffled = shuffleArray([...filteredHindi]);
-      selectedMovies = shuffled.slice(0, 50);
+      selectedMovies = shuffled.slice(0, count);
     } else if (languages.includes('Kannada')) {
       // Only Kannada - repeat if needed
       const shuffled = shuffleArray([...filteredKannada]);
-      while (selectedMovies.length < 50) {
+      while (selectedMovies.length < count) {
         selectedMovies.push(...shuffled);
       }
-      selectedMovies = selectedMovies.slice(0, 50);
+      selectedMovies = selectedMovies.slice(0, count);
     } else if (languages.includes('English')) {
       // For now, use Hindi movies
       const shuffled = shuffleArray([...filteredHindi]);
-      selectedMovies = shuffled.slice(0, 50);
+      selectedMovies = shuffled.slice(0, count);
     }
 
     // Shuffle the final list
     selectedMovies = shuffleArray(selectedMovies);
 
-    // Assign numbers 1-50
+    // Assign numbers 1-N
     return selectedMovies.map((movie, index) => ({
       number: index + 1,
       ...movie,
