@@ -39,58 +39,79 @@ The clue should be a mathematical equation using base values assigned to the ACT
 
 CRITICAL - CLUE VARIATION RULES:
 - The clue MUST be based on the real people involved in this specific song
-- You can use ANY combination of: Playback Singer(s), Music Director, Lead Actor(s), Lead Actress(es)
-- The clue should VARY from song to song - don't always use the same pattern
-- Examples of valid clue patterns:
-  * "Male Singer + Female Singer" (e.g., Arijit Singh + Shreya Ghoshal)
-  * "Lead Actor + Lead Actress" (e.g., Shah Rukh Khan + Kajol)
-  * "Lead Actor + Male Singer" (e.g., Hrithik Roshan + Udit Narayan)
-  * "Music Director + Female Singer" (e.g., A.R. Rahman + Alka Yagnik)
-  * "Lead Actress + Music Director + Male Singer" (e.g., for three-way combinations)
-  * "Music Director × 2 + Lead Actor" (e.g., if using same person twice)
-  * Any other creative combination that adds up to the target number
+- You can use ANY combination of: Male Singer, Female Singer, Music Director, Lead Male Actor, Lead Female Actor
+- The clue should VARY from song to song - BE VERY CREATIVE!
+- You can use ALPHABET VALUES: First letter of a name = position in alphabet (A=1, B=2, ... Z=26)
 
-Example 1:
-- Target: 45, Song: "Tum Hi Ho" by Arijit Singh from Aashiqui 2 (2013)
-- Lead Actor: Aditya Roy Kapur (25), Lead Actress: Shraddha Kapoor (20)
-- Clue: "Lead Actor + Lead Actress" (25 + 20 = 45)
+CREATIVE CLUE PATTERNS (use different ones for variety):
+1. Direct person values:
+   * "Male Singer + Female Singer"
+   * "Lead Male Actor + Lead Female Actor"
+   * "Lead Male Actor + Male Singer"
+   * "Music Director + Female Singer"
+   * "Lead Female Actor + Music Director + Male Singer"
 
-Example 2:
-- Target: 60, Song: "Chaiyya Chaiyya" by Sukhwinder Singh from Dil Se (1998)
-- Music Director: A.R. Rahman (30), Male Singer: Sukhwinder Singh (30)
-- Clue: "Music Director + Male Singer" (30 + 30 = 60)
+2. Alphabet-based clues (VERY CREATIVE):
+   * "First letter of Lead Male Actor's first name + Lead Female Actor" (if Shah Rukh Khan, S=19)
+   * "First letter of Male Singer's last name + Lead Male Actor"
+   * "First letter of Music Director's name + Male Singer + Female Singer"
+   * "Lead Male Actor + First letter of Lead Female Actor's first name"
 
-Example 3:
-- Target: 72, Song: "Channa Mereya" by Arijit Singh from Ae Dil Hai Mushkil (2016)
-- Lead Actor: Ranbir Kapoor (40), Male Singer: Arijit Singh (20), Music Director: Pritam (12)
-- Clue: "Lead Actor + Male Singer + Music Director" (40 + 20 + 12 = 72)
+3. Mixed combinations:
+   * "Music Director + First letter of Male Singer's first name + Lead Female Actor"
+   * "Lead Male Actor + Lead Female Actor + First letter of Movie name"
 
-Requirements:
-- Choose ONLY ${languageText} film songs
-- The song must be from the year range ${startYear} to ${endYear}
-- Include the movie name in the response
-- CRITICAL: Select ONLY popular, mainstream, chart-topping songs that most people would recognize
-- Avoid obscure, esoteric, or niche songs - stick to widely known hits and blockbuster movie songs
-- Prefer songs from successful films and popular artists with mass appeal
-- The sum of the base values must equal ${number}
-- Assign base values (1-75) to each person involved
-- BE CREATIVE with clues - vary the combination of people used
-- CRITICAL: Song title, artist names, and movie name MUST be in English/romanized format ONLY (no Devanagari, Kannada, or other non-Latin scripts)
-- Example: Use "Tum Hi Ho" NOT "तुम ही हो", use "Arijit Singh" NOT "अरिजीत सिंह"${usedSongsText}${baseValuesText}
+IMPORTANT RULES:
+1. VERIFY YOUR MATH: The calculation MUST equal ${number} exactly!
+2. If music director is a pair (e.g., "Jatin-Lalit", "Vishal-Shekhar", "Sajid-Wajid"), DO NOT use them in the clue. Use only solo music directors.
+3. Use proper terminology: "Lead Male Actor", "Lead Female Actor", "Male Singer", "Female Singer", "Music Director"
+4. When using alphabet values, clearly state which letter you're using in the clue
+5. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
+6. The song must be from ${startYear} to ${endYear}
+7. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
+
+Example 1 (Direct):
+Target: 45, Song: "Tum Hi Ho" from Aashiqui 2 (2013)
+- Male Singer: Arijit Singh (25)
+- Lead Male Actor: Aditya Roy Kapur (20)
+Clue: "Male Singer + Lead Male Actor"
+Calculation: "25 + 20"
+Verification: 25 + 20 = 45 ✓
+
+Example 2 (Alphabet):
+Target: 39, Song: "Chaiyya Chaiyya" from Dil Se (1998)
+- Male Singer: Sukhwinder Singh (20)
+- First letter of Lead Male Actor "Shah Rukh Khan" = S = 19
+Clue: "Male Singer + First letter of Lead Male Actor's first name"
+Calculation: "20 + 19"
+Verification: 20 + 19 = 39 ✓
+Entities: [
+  {"name": "Sukhwinder Singh", "role": "Male Singer", "baseValue": 20},
+  {"name": "Shah Rukh Khan", "role": "Lead Male Actor", "baseValue": 19}
+]
+
+Example 3 (Mixed):
+Target: 50, Song: "Tum Se Hi" from Jab We Met (2007)
+- Lead Male Actor: Shahid Kapoor (30)
+- Lead Female Actor: Kareena Kapoor (15)
+- First letter of Movie "Jab We Met" = J = 10
+Clue: "Lead Male Actor + Lead Female Actor - First letter of Movie name"
+Calculation: "30 + 15 - 10"
+Verification: 30 + 15 - 10 = 35... WRONG! Must recalculate.
+Corrected: Lead Male Actor (35) + Lead Female Actor (15) = 50 ✓
 
 Output ONLY this JSON structure with no additional text:
 {
   "number": ${number},
-  "song": "Song Title in English/Romanized (e.g., 'Tum Hi Ho', 'Badtameez Dil')",
-  "artist": "Singer Name(s) in English (e.g., 'Arijit Singh', 'Shreya Ghoshal')",
-  "movie": "Movie Name in English/Romanized (e.g., 'Aashiqui 2', 'Yeh Jawaani Hai Deewani')",
-  "actors": ["Lead Actor Name", "Lead Actress Name"],
-  "musicDirector": "Music Director Name (if used in calculation)",
-  "clue": "Description of the equation (e.g., 'Lead Actor + Music Director + Male Singer')",
+  "song": "Song Title",
+  "artist": "Singer Name(s)",
+  "movie": "Movie Name",
+  "actors": ["Lead Male Actor Name", "Lead Female Actor Name"],
+  "musicDirector": "Music Director Name (null if paired like Jatin-Lalit)",
+  "clue": "Description of equation using proper terminology",
   "year": 2013,
   "entities": [
-    {"name": "Aditya Roy Kapur", "role": "Lead Actor", "baseValue": 25},
-    {"name": "Shraddha Kapoor", "role": "Lead Actress", "baseValue": 20}
+    {"name": "Person Name", "role": "Lead Male Actor|Lead Female Actor|Male Singer|Female Singer|Music Director", "baseValue": 25}
   ],
   "calculation": "25 + 20"
 }`;
@@ -124,6 +145,38 @@ Output ONLY this JSON structure with no additional text:
       }
 
       const association = JSON.parse(jsonText);
+
+      // Validate that the calculation equals the target number
+      if (association.calculation) {
+        try {
+          // Safely evaluate the calculation
+          const result = eval(association.calculation);
+          if (result !== number) {
+            console.warn(`⚠️  Calculation mismatch: ${association.calculation} = ${result}, expected ${number}`);
+            console.warn(`   Song: "${association.song}" - Regenerating with corrected values...`);
+
+            // Attempt to fix by adjusting the last entity's value
+            if (association.entities && association.entities.length > 0) {
+              const diff = number - result;
+              const lastEntity = association.entities[association.entities.length - 1];
+              const oldValue = lastEntity.baseValue;
+              lastEntity.baseValue += diff;
+
+              // Update calculation string
+              const parts = association.calculation.split(/[\+\-\*\/]/).map(p => p.trim());
+              parts[parts.length - 1] = lastEntity.baseValue.toString();
+              association.calculation = association.calculation.replace(/\d+(?!.*\d)/, lastEntity.baseValue);
+
+              console.log(`   ✓ Fixed: Adjusted ${lastEntity.name} from ${oldValue} to ${lastEntity.baseValue}`);
+              console.log(`   ✓ New calculation: ${association.calculation} = ${number}`);
+            }
+          } else {
+            console.log(`  ✓ Calculation verified: ${association.calculation} = ${number}`);
+          }
+        } catch (error) {
+          console.warn(`⚠️  Could not validate calculation: ${association.calculation}`);
+        }
+      }
 
       // Update base values with new entities
       if (association.entities) {

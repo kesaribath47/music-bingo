@@ -316,7 +316,9 @@ class GameManager {
       if (song.entities && Array.isArray(song.entities)) {
         song.entities.forEach(entity => {
           // Use name as key to ensure uniqueness
-          if (!entitiesMap.has(entity.name)) {
+          // Update if we have newer data (e.g., with imageUrl)
+          const existing = entitiesMap.get(entity.name);
+          if (!existing || (entity.imageUrl && !existing.imageUrl)) {
             entitiesMap.set(entity.name, {
               name: entity.name,
               role: entity.role,
