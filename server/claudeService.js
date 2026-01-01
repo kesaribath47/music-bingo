@@ -18,7 +18,7 @@ class ClaudeService {
    * Generate a list of movies numbered 1-N
    * Returns array of { number, movie, year, language, actors }
    */
-  async generateMovieList(count = 50, config = {}) {
+  async generateMovieList(count = 50, config = {}, progressCallback = null) {
     const { startYear = 1990, endYear = 2024, languages = ['Hindi', 'Kannada'] } = config;
     const movies = [];
 
@@ -29,6 +29,11 @@ class ClaudeService {
       if (movie) {
         movies.push(movie);
         console.log(`  ${i}/${count} - ${movie.movie} (${movie.year}) - ${movie.language}`);
+      }
+
+      // Report progress if callback provided
+      if (progressCallback) {
+        progressCallback(i, count);
       }
 
       // Small delay to avoid rate limiting

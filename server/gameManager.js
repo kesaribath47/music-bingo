@@ -134,7 +134,7 @@ class GameManager {
     room.songConfig = config;
 
     // Generate 50 movies numbered 1-50
-    const movies = await this.claudeService.generateMovieList(50, config);
+    const movies = await this.claudeService.generateMovieList(50, config, progressCallback);
 
     room.movies = movies;
     room.moviesGenerated = true;

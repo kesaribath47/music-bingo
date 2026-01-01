@@ -122,9 +122,8 @@ io.on('connection', (socket) => {
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);
+      console.log(`✅ Movies generated in room ${roomCode}. moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
       io.to(roomCode).emit('songs-generation-complete', roomState);
-
-      console.log(`Movies generated in room ${roomCode}`);
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
