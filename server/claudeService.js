@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const DeezerService = require('./deezerService');
+const JioSaavnService = require('./jiosaavnService');
 const IMDbService = require('./imdbService');
 
 /**
@@ -11,6 +12,7 @@ class ClaudeService {
       apiKey: apiKey
     });
     this.deezerService = new DeezerService();
+    this.jiosaavnService = new JioSaavnService();
     this.imdbService = new IMDbService(tmdbApiKey);
   }
 
@@ -19,14 +21,15 @@ class ClaudeService {
    * with actor/singer base values
    * Returns { number, song, artist, clue, year, entities, calculation }
    */
-  async generateSongAssociation(number, usedSongs = [], baseValues = {}, config = {}) {
+  async generateSongAssociation(number, usedSongs = [], baseValues = {}, config = {}, retryCount = 0) {
+    const maxRetries = 5; // Try up to 5 times to find a song with preview
     const { startYear = 1990, endYear = 2024, languages = ['Hindi', 'Kannada'] } = config;
     const usedSongsText = usedSongs.length > 0
       ? `\n\nAlready used songs (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
 
     const baseValuesText = Object.keys(baseValues).length > 0
-      ? `\n\nExisting base values for actors/singers:\n${JSON.stringify(baseValues, null, 2)}\nYou MUST use these exact base values if you use any of these people. For new people, assign unused values between 1-75.`
+      ? `\n\nExisting base values for reference (you can change these if needed):\n${JSON.stringify(baseValues, null, 2)}\nYou can reuse these values or assign new values between 1-75 to make the math work for ${number}.`
       : '';
 
     const languageText = languages.length > 0 ? languages.join(' or ') : 'any language';
@@ -273,23 +276,46 @@ Output ONLY this JSON structure with no additional text:
         }
       }
 
-      // Search Deezer for the song to get preview URL
-      const deezerResult = await this.deezerService.searchSong(
+      // Try JioSaavn first (better for Indian music)
+      console.log('  🔍 Trying JioSaavn...');
+      let musicResult = await this.jiosaavnService.searchSong(
         association.artist,
         association.song,
         association.year
       );
 
-      if (deezerResult) {
-        association.previewUrl = deezerResult.previewUrl;
-        association.deezerLink = deezerResult.deezerLink;
-        association.albumCover = deezerResult.albumCover;
-      } else {
-        console.log(`No Deezer preview found for: ${association.artist} - ${association.song}`);
-        association.previewUrl = null;
+      // Fall back to Deezer if JioSaavn fails
+      if (!musicResult || !musicResult.previewUrl) {
+        console.log('  🔍 JioSaavn failed, trying Deezer...');
+        musicResult = await this.deezerService.searchSong(
+          association.artist,
+          association.song,
+          association.year
+        );
       }
 
-      return association;
+      if (musicResult && musicResult.previewUrl) {
+        association.previewUrl = musicResult.previewUrl;
+        association.musicLink = musicResult.jiosaavnLink || musicResult.deezerLink;
+        association.albumCover = musicResult.albumCover;
+        association.musicService = musicResult.jiosaavnLink ? 'JioSaavn' : 'Deezer';
+        console.log(`  ✅ Found preview on ${association.musicService}`);
+        return association;
+      } else {
+        console.log(`❌ No preview found on any service for: ${association.artist} - ${association.song}`);
+
+        // Retry with a different song if we haven't exceeded max retries
+        if (retryCount < maxRetries) {
+          console.log(`   🔄 Retry ${retryCount + 1}/${maxRetries}: Generating different song...`);
+          // Add this song to used songs to avoid regenerating it
+          usedSongs.push(`${association.artist} - ${association.song}`);
+          return await this.generateSongAssociation(number, usedSongs, baseValues, config, retryCount + 1);
+        } else {
+          console.warn(`   ⚠️  Max retries reached. Returning song without preview.`);
+          association.previewUrl = null;
+          return association;
+        }
+      }
     } catch (error) {
       console.error('Error generating song association:', error);
 
