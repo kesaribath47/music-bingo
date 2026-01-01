@@ -11,6 +11,7 @@ class DeezerService {
 
   /**
    * Search for a song on Deezer and get preview URL
+   * Uses multiple fallback strategies to find the best match
    * @param {string} artist - Artist name
    * @param {string} song - Song title
    * @param {number} year - Release year (optional, for filtering)
@@ -18,22 +19,39 @@ class DeezerService {
    */
   async searchSong(artist, song, year = null) {
     try {
-      // Build search query
-      const query = `artist:"${artist}" track:"${song}"`;
-      const searchUrl = `${this.baseUrl}/search?q=${encodeURIComponent(query)}`;
+      console.log(`Searching Deezer for: "${song}" by "${artist}" (${year || 'any year'})`);
 
-      const response = await axios.get(searchUrl);
+      // Strategy 1: Try exact artist + track search
+      let results = await this.trySearch(`artist:"${artist}" track:"${song}"`);
 
-      if (response.data && response.data.data && response.data.data.length > 0) {
+      // Strategy 2: If no results, try without quotes (more flexible)
+      if (!results || results.length === 0) {
+        console.log('  → Trying flexible search without quotes...');
+        results = await this.trySearch(`${artist} ${song}`);
+      }
+
+      // Strategy 3: If still no results, try just the song title
+      if (!results || results.length === 0) {
+        console.log('  → Trying song title only...');
+        results = await this.trySearch(song);
+      }
+
+      // Strategy 4: Try with first artist name only (in case of multiple artists)
+      if (!results || results.length === 0) {
+        const firstArtist = artist.split(',')[0].trim();
+        if (firstArtist !== artist) {
+          console.log(`  → Trying first artist only: "${firstArtist}"...`);
+          results = await this.trySearch(`${firstArtist} ${song}`);
+        }
+      }
+
+      if (results && results.length > 0) {
         // Filter by year if provided
-        let results = response.data.data;
-
         if (year) {
-          // Try to find a match from the same year or nearby years
           const yearMatches = results.filter(track => {
             if (!track.album || !track.album.release_date) return false;
             const trackYear = new Date(track.album.release_date).getFullYear();
-            return Math.abs(trackYear - year) <= 2; // Allow 2 years difference
+            return Math.abs(trackYear - year) <= 3; // Allow 3 years difference
           });
 
           if (yearMatches.length > 0) {
@@ -43,6 +61,7 @@ class DeezerService {
 
         // Get the first result (most relevant)
         const track = results[0];
+        console.log(`  ✓ Found: "${track.title}" by ${track.artist?.name} (${track.album?.title || 'Unknown Album'})`);
 
         return {
           previewUrl: track.preview, // 30-second MP3 preview
@@ -54,10 +73,30 @@ class DeezerService {
         };
       }
 
-      console.log(`No Deezer results found for: ${artist} - ${song}`);
+      console.log(`  ✗ No Deezer results found for: ${artist} - ${song}`);
       return null;
     } catch (error) {
       console.error('Deezer search error:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Helper method to try a search query
+   * @param {string} query - Search query
+   * @returns {Array} - Array of track results or null
+   */
+  async trySearch(query) {
+    try {
+      const searchUrl = `${this.baseUrl}/search?q=${encodeURIComponent(query)}`;
+      const response = await axios.get(searchUrl);
+
+      if (response.data && response.data.data && response.data.data.length > 0) {
+        return response.data.data;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Search failed for query "${query}":`, error.message);
       return null;
     }
   }

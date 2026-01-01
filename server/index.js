@@ -22,7 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-const gameManager = new GameManager(process.env.CLAUDE_API_KEY);
+const gameManager = new GameManager(process.env.CLAUDE_API_KEY, process.env.TMDB_API_KEY);
 
 // Get local IP addresses
 function getLocalIPAddresses() {

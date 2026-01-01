@@ -6,10 +6,10 @@ const ClaudeService = require('./claudeService');
  * Manages game rooms and state
  */
 class GameManager {
-  constructor(claudeApiKey) {
+  constructor(claudeApiKey, tmdbApiKey = null) {
     this.rooms = new Map();
     this.cardGenerator = new BingoCardGenerator();
-    this.claudeService = new ClaudeService(claudeApiKey);
+    this.claudeService = new ClaudeService(claudeApiKey, tmdbApiKey);
   }
 
   /**
@@ -310,6 +310,27 @@ class GameManager {
     const room = this.getRoom(roomCode);
     if (!room) return null;
 
+    // Collect all unique entities from all songs
+    const entitiesMap = new Map();
+    room.songs.forEach(song => {
+      if (song.entities && Array.isArray(song.entities)) {
+        song.entities.forEach(entity => {
+          // Use name as key to ensure uniqueness
+          if (!entitiesMap.has(entity.name)) {
+            entitiesMap.set(entity.name, {
+              name: entity.name,
+              role: entity.role,
+              baseValue: entity.baseValue,
+              imageUrl: entity.imageUrl || null
+            });
+          }
+        });
+      }
+    });
+
+    // Convert map to array
+    const entities = Array.from(entitiesMap.values());
+
     return {
       code: room.code,
       playerCount: room.players.size,
@@ -327,7 +348,8 @@ class GameManager {
       totalSongs: room.songs.length,
       calledNumbers: room.calledNumbers,
       prizes: room.prizeManager.getAllPrizes(),
-      baseValues: room.baseValues
+      baseValues: room.baseValues,
+      entities: entities // Add entities array with images
     };
   }
 

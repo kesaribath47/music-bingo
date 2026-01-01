@@ -1,15 +1,17 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const DeezerService = require('./deezerService');
+const IMDbService = require('./imdbService');
 
 /**
  * Service to generate song-number associations using Claude API
  */
 class ClaudeService {
-  constructor(apiKey) {
+  constructor(apiKey, tmdbApiKey = null) {
     this.client = new Anthropic({
       apiKey: apiKey
     });
     this.deezerService = new DeezerService();
+    this.imdbService = new IMDbService(tmdbApiKey);
   }
 
   /**
@@ -33,36 +35,64 @@ class ClaudeService {
 
 Generate a ${languageText} song association for the number ${number} for a music bingo game.
 
-The clue should be a mathematical equation using base values assigned to actors and singers.
+The clue should be a mathematical equation using base values assigned to the ACTUAL people involved in THIS SPECIFIC SONG.
 
-For example:
-- If the target number is 45, and Ranbir Kapoor has base value 40, Deepika Padukone has base value 5:
-  Clue: "Lead Actor + Lead Actress" (40 + 5 = 45)
-- If the target number is 30, and Arijit Singh has value 15, Shreya Ghoshal has value 15:
-  Clue: "Male Singer + Female Singer" (15 + 15 = 30)
+CRITICAL - CLUE VARIATION RULES:
+- The clue MUST be based on the real people involved in this specific song
+- You can use ANY combination of: Playback Singer(s), Music Director, Lead Actor(s), Lead Actress(es)
+- The clue should VARY from song to song - don't always use the same pattern
+- Examples of valid clue patterns:
+  * "Male Singer + Female Singer" (e.g., Arijit Singh + Shreya Ghoshal)
+  * "Lead Actor + Lead Actress" (e.g., Shah Rukh Khan + Kajol)
+  * "Lead Actor + Male Singer" (e.g., Hrithik Roshan + Udit Narayan)
+  * "Music Director + Female Singer" (e.g., A.R. Rahman + Alka Yagnik)
+  * "Lead Actress + Music Director + Male Singer" (e.g., for three-way combinations)
+  * "Music Director × 2 + Lead Actor" (e.g., if using same person twice)
+  * Any other creative combination that adds up to the target number
+
+Example 1:
+- Target: 45, Song: "Tum Hi Ho" by Arijit Singh from Aashiqui 2 (2013)
+- Lead Actor: Aditya Roy Kapur (25), Lead Actress: Shraddha Kapoor (20)
+- Clue: "Lead Actor + Lead Actress" (25 + 20 = 45)
+
+Example 2:
+- Target: 60, Song: "Chaiyya Chaiyya" by Sukhwinder Singh from Dil Se (1998)
+- Music Director: A.R. Rahman (30), Male Singer: Sukhwinder Singh (30)
+- Clue: "Music Director + Male Singer" (30 + 30 = 60)
+
+Example 3:
+- Target: 72, Song: "Channa Mereya" by Arijit Singh from Ae Dil Hai Mushkil (2016)
+- Lead Actor: Ranbir Kapoor (40), Male Singer: Arijit Singh (20), Music Director: Pritam (12)
+- Clue: "Lead Actor + Male Singer + Music Director" (40 + 20 + 12 = 72)
 
 Requirements:
 - Choose ONLY ${languageText} film songs
 - The song must be from the year range ${startYear} to ${endYear}
-- The song must be well-known and popular
-- Use lead actors/actresses OR playback singers (or both) to create the math equation
+- Include the movie name in the response
+- CRITICAL: Select ONLY popular, mainstream, chart-topping songs that most people would recognize
+- Avoid obscure, esoteric, or niche songs - stick to widely known hits and blockbuster movie songs
+- Prefer songs from successful films and popular artists with mass appeal
 - The sum of the base values must equal ${number}
 - Assign base values (1-75) to each person involved
-- The song should be available on YouTube${usedSongsText}${baseValuesText}
+- BE CREATIVE with clues - vary the combination of people used
+- CRITICAL: Song title, artist names, and movie name MUST be in English/romanized format ONLY (no Devanagari, Kannada, or other non-Latin scripts)
+- Example: Use "Tum Hi Ho" NOT "तुम ही हो", use "Arijit Singh" NOT "अरिजीत सिंह"${usedSongsText}${baseValuesText}
 
 Output ONLY this JSON structure with no additional text:
 {
   "number": ${number},
-  "song": "Song Title (in English or native script)",
-  "artist": "Singer Name(s)",
+  "song": "Song Title in English/Romanized (e.g., 'Tum Hi Ho', 'Badtameez Dil')",
+  "artist": "Singer Name(s) in English (e.g., 'Arijit Singh', 'Shreya Ghoshal')",
+  "movie": "Movie Name in English/Romanized (e.g., 'Aashiqui 2', 'Yeh Jawaani Hai Deewani')",
   "actors": ["Lead Actor Name", "Lead Actress Name"],
-  "clue": "Description of the equation (e.g., 'Lead Actor + Lead Actress')",
+  "musicDirector": "Music Director Name (if used in calculation)",
+  "clue": "Description of the equation (e.g., 'Lead Actor + Music Director + Male Singer')",
   "year": 2013,
   "entities": [
-    {"name": "Ranbir Kapoor", "role": "Lead Actor", "baseValue": 40},
-    {"name": "Deepika Padukone", "role": "Lead Actress", "baseValue": 5}
+    {"name": "Aditya Roy Kapur", "role": "Lead Actor", "baseValue": 25},
+    {"name": "Shraddha Kapoor", "role": "Lead Actress", "baseValue": 20}
   ],
-  "calculation": "40 + 5"
+  "calculation": "25 + 20"
 }`;
 
     try {
@@ -100,6 +130,68 @@ Output ONLY this JSON structure with no additional text:
         association.entities.forEach(entity => {
           baseValues[entity.name] = entity.baseValue;
         });
+      }
+
+      // Search TMDb for movie information to enrich entities with images
+      if (association.movie) {
+        const movieData = await this.imdbService.searchMovie(association.movie, association.year);
+
+        if (movieData) {
+          console.log(`  📽️  Enriching entities with TMDb data...`);
+
+          // Create a map of people from TMDb for easy lookup
+          const tmdbPeople = new Map();
+
+          // Add actors
+          if (movieData.leadActors) {
+            movieData.leadActors.forEach(actor => {
+              tmdbPeople.set(actor.name.toLowerCase(), {
+                image: actor.profileImage,
+                type: 'actor'
+              });
+            });
+          }
+
+          // Add music directors
+          if (movieData.musicDirectors && movieData.musicDirectors.length > 0) {
+            movieData.musicDirectors.forEach(md => {
+              tmdbPeople.set(md.name.toLowerCase(), {
+                image: md.profileImage,
+                type: 'music_director'
+              });
+            });
+          }
+
+          // Enrich entities with images from TMDb
+          if (association.entities) {
+            for (const entity of association.entities) {
+              const personData = tmdbPeople.get(entity.name.toLowerCase());
+
+              if (personData && personData.image) {
+                entity.imageUrl = personData.image;
+                console.log(`    ✓ Added image for ${entity.name}`);
+              } else if (entity.role.toLowerCase().includes('singer')) {
+                // For singers, try searching TMDb person database
+                const singerData = await this.imdbService.searchPerson(entity.name);
+                if (singerData && singerData.profileImage) {
+                  entity.imageUrl = singerData.profileImage;
+                  console.log(`    ✓ Added image for singer ${entity.name}`);
+                } else {
+                  console.log(`    ⚠️  No image found for ${entity.name}`);
+                  entity.imageUrl = null;
+                }
+              } else {
+                console.log(`    ⚠️  No TMDb match for ${entity.name}`);
+                entity.imageUrl = null;
+              }
+            }
+          }
+
+          // Add movie poster if available
+          if (movieData.posterUrl) {
+            association.moviePoster = movieData.posterUrl;
+          }
+        }
       }
 
       // Search Deezer for the song to get preview URL
