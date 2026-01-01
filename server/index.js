@@ -112,14 +112,26 @@ io.on('connection', (socket) => {
         return;
       }
 
+      console.log(`🎬 Generating movies for room ${roomCode}...`);
+
       // Generate 50 movies instantly (no API calls)
       gameManager.generateMovies(roomCode, config);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);
-      console.log(`✅ Movies generated instantly in room ${roomCode}. moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
+      console.log(`✅ Movies generated instantly in room ${roomCode}`);
+      console.log(`   moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
+      console.log(`   Emitting 'songs-generation-complete' to room ${roomCode}`);
+
+      // Emit to the entire room
       io.to(roomCode).emit('songs-generation-complete', roomState);
+
+      // Also emit directly to the socket to ensure host receives it
+      socket.emit('songs-generation-complete', roomState);
+
+      console.log(`   Event emitted successfully`);
     } catch (error) {
+      console.error(`❌ Error generating movies:`, error.message);
       socket.emit('error', { message: error.message });
     }
   });
