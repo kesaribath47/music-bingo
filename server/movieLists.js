@@ -84,6 +84,18 @@ const kannadaMovies = [
   { movie: "Kavaludaari", year: 2019, language: "Kannada" }
 ];
 
+/**
+ * Shuffle array helper function
+ */
+function shuffleArray(array) {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 module.exports = {
   hindiMovies,
   kannadaMovies,
@@ -114,8 +126,8 @@ module.exports = {
     // If both languages selected, mix them evenly
     if (languages.includes('Hindi') && languages.includes('Kannada')) {
       // Take 25 Hindi and 25 Kannada
-      const shuffledHindi = this.shuffleArray([...filteredHindi]);
-      const shuffledKannada = this.shuffleArray([...filteredKannada]);
+      const shuffledHindi = shuffleArray([...filteredHindi]);
+      const shuffledKannada = shuffleArray([...filteredKannada]);
 
       const hindiPart = shuffledHindi.slice(0, 25);
       const kannadaPart = shuffledKannada.slice(0, 25);
@@ -127,23 +139,23 @@ module.exports = {
       }
     } else if (languages.includes('Hindi')) {
       // Only Hindi
-      const shuffled = this.shuffleArray([...filteredHindi]);
+      const shuffled = shuffleArray([...filteredHindi]);
       selectedMovies = shuffled.slice(0, 50);
     } else if (languages.includes('Kannada')) {
       // Only Kannada - repeat if needed
-      const shuffled = this.shuffleArray([...filteredKannada]);
+      const shuffled = shuffleArray([...filteredKannada]);
       while (selectedMovies.length < 50) {
         selectedMovies.push(...shuffled);
       }
       selectedMovies = selectedMovies.slice(0, 50);
     } else if (languages.includes('English')) {
       // For now, use Hindi movies
-      const shuffled = this.shuffleArray([...filteredHindi]);
+      const shuffled = shuffleArray([...filteredHindi]);
       selectedMovies = shuffled.slice(0, 50);
     }
 
     // Shuffle the final list
-    selectedMovies = this.shuffleArray(selectedMovies);
+    selectedMovies = shuffleArray(selectedMovies);
 
     // Assign numbers 1-50
     return selectedMovies.map((movie, index) => ({
@@ -154,14 +166,7 @@ module.exports = {
   },
 
   /**
-   * Shuffle array
+   * Shuffle array (kept for backward compatibility)
    */
-  shuffleArray(array) {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
+  shuffleArray
 };
