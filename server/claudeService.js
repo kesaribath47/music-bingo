@@ -1,6 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const YouTubeService = require('./youtubeService');
 const IMDbService = require('./imdbService');
+const { generateInstantMovieList } = require('./movieLists');
 
 /**
  * Service to generate song-number associations using Claude API
@@ -15,132 +16,17 @@ class ClaudeService {
   }
 
   /**
-   * Generate a list of movies numbered 1-N
+   * Generate a list of 50 movies instantly from predefined lists
    * Returns array of { number, movie, year, language, actors }
    */
-  async generateMovieList(count = 50, config = {}, progressCallback = null) {
-    const { startYear = 1990, endYear = 2024, languages = ['Hindi', 'Kannada'] } = config;
-    const movies = [];
+  generateMovieList(config = {}) {
+    const { languages = ['Hindi', 'Kannada'] } = config;
+    console.log(`\n🎬 Generating 50 movies instantly from ${languages.join(', ')} catalog...`);
 
-    console.log(`\n🎬 Generating ${count} movies for the game...`);
-
-    for (let i = 1; i <= count; i++) {
-      const movie = await this.generateSingleMovie(i, movies.map(m => m.movie), config);
-      if (movie) {
-        movies.push(movie);
-        console.log(`  ${i}/${count} - ${movie.movie} (${movie.year}) - ${movie.language}`);
-      }
-
-      // Report progress if callback provided
-      if (progressCallback) {
-        progressCallback(i, count);
-      }
-
-      // Small delay to avoid rate limiting
-      await this.sleep(800);
-    }
+    const movies = generateInstantMovieList(languages);
+    console.log(`\n✅ Generated ${movies.length} movies instantly!`);
 
     return movies;
-  }
-
-  /**
-   * Generate a single movie entry
-   */
-  async generateSingleMovie(number, usedMovies = [], config = {}, retryCount = 0) {
-    const maxRetries = 3;
-    const { startYear = 1990, endYear = 2024, languages = ['Hindi', 'Kannada'] } = config;
-
-    const usedMoviesText = usedMovies.length > 0
-      ? `\n\nAlready used movies (do NOT suggest these): ${usedMovies.join(', ')}`
-      : '';
-
-    const languageText = languages.length > 0 ? languages.join(' or ') : 'any language';
-    const languageFilter = languages.length > 0
-      ? `\n\nCRITICAL LANGUAGE REQUIREMENT: The movie MUST be in EXACTLY one of these languages: ${languages.join(', ')}. Do NOT use Tamil, Telugu, or any other language. ONLY ${languages.join(' or ')}!`
-      : '';
-
-    const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
-
-Generate a ${languageText} BLOCKBUSTER movie for number ${number} in a music bingo game.
-
-REQUIREMENTS:
-1. Choose a BLOCKBUSTER movie with massive commercial success and box office records
-2. Choose an ICONIC movie that everyone remembers
-3. ONLY A-LIST MEGASTARS:
-
-   For Hindi movies - ONLY these actors:
-   * Male: Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Akshay Kumar, Ranbir Kapoor, Ranveer Singh, Varun Dhawan
-   * Female: Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt, Anushka Sharma, Kajol, Madhuri Dixit, Aishwarya Rai
-
-   For Kannada movies - ONLY these actors:
-   * Male: Yash, Sudeep, Puneeth Rajkumar, Shiva Rajkumar, Upendra, Darshan
-   * Female: Rashmika Mandanna, Radhika Pandit, Ramya, Rachita Ram
-
-4. The movie must be from ${startYear} to ${endYear}
-5. Names must be in English/romanized format ONLY${languageFilter}${usedMoviesText}
-
-Output ONLY this JSON structure with no additional text:
-{
-  "number": ${number},
-  "movie": "Movie Name",
-  "actors": ["Lead Male Actor Name", "Lead Female Actor Name"],
-  "year": 2013,
-  "language": "Hindi or Kannada"
-}`;
-
-    try {
-      const message = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 512,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
-      });
-
-      const responseText = message.content[0].text;
-
-      // Extract JSON from response
-      let jsonText = responseText.trim();
-      if (jsonText.includes('```json')) {
-        jsonText = jsonText.split('```json')[1].split('```')[0].trim();
-      } else if (jsonText.includes('```')) {
-        jsonText = jsonText.split('```')[1].split('```')[0].trim();
-      }
-
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[0];
-      }
-
-      const movie = JSON.parse(jsonText);
-
-      // Validate language match
-      if (movie.language && languages.length > 0) {
-        const languageMatch = languages.some(lang =>
-          movie.language.toLowerCase() === lang.toLowerCase()
-        );
-
-        if (!languageMatch) {
-          console.warn(`⚠️  Language mismatch: Got ${movie.language}, expected one of ${languages.join(', ')}`);
-
-          if (retryCount < maxRetries) {
-            return await this.generateSingleMovie(number, usedMovies, config, retryCount + 1);
-          }
-        }
-      }
-
-      return movie;
-    } catch (error) {
-      console.error('Error generating movie:', error);
-      return {
-        number: number,
-        movie: `Movie ${number}`,
-        actors: [],
-        year: 2020,
-        language: languages[0] || 'Hindi'
-      };
-    }
   }
 
   /**

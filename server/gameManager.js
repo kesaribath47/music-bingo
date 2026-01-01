@@ -115,12 +115,11 @@ class GameManager {
   }
 
   /**
-   * Generate movie list for a room
+   * Generate movie list for a room (instant - no API calls)
    * @param {string} roomCode
    * @param {object} config - { startYear, endYear, languages }
-   * @param {function} progressCallback - Called with (current, total) for progress updates
    */
-  async generateMovies(roomCode, config, progressCallback = null) {
+  generateMovies(roomCode, config) {
     const room = this.getRoom(roomCode);
     if (!room) {
       throw new Error('Room not found');
@@ -130,17 +129,15 @@ class GameManager {
       throw new Error('Movies already generated');
     }
 
-    room.isGeneratingMovies = true;
     room.songConfig = config;
 
-    // Generate 50 movies numbered 1-50
-    const movies = await this.claudeService.generateMovieList(50, config, progressCallback);
+    // Generate 50 movies instantly from predefined lists
+    const movies = this.claudeService.generateMovieList(config);
 
     room.movies = movies;
     room.moviesGenerated = true;
-    room.isGeneratingMovies = false;
 
-    console.log(`\n✅ Generated ${movies.length} movies for room ${roomCode}`);
+    console.log(`\n✅ Generated ${movies.length} movies instantly for room ${roomCode}`);
 
     return room;
   }

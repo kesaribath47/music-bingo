@@ -112,17 +112,12 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Progress callback for movie generation
-      const progressCallback = (current, total) => {
-        io.to(roomCode).emit('generation-progress', { current, total });
-      };
-
-      // Generate 50 movies with progress updates
-      await gameManager.generateMovies(roomCode, config, progressCallback);
+      // Generate 50 movies instantly (no API calls)
+      gameManager.generateMovies(roomCode, config);
 
       // Send updated room state
       const roomState = gameManager.getRoomState(roomCode);
-      console.log(`✅ Movies generated in room ${roomCode}. moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
+      console.log(`✅ Movies generated instantly in room ${roomCode}. moviesGenerated=${roomState.moviesGenerated}, movieCount=${roomState.movies?.length}`);
       io.to(roomCode).emit('songs-generation-complete', roomState);
     } catch (error) {
       socket.emit('error', { message: error.message });
