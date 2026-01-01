@@ -84,9 +84,14 @@ class ClaudeService {
    * Returns { number, song, artist, movie, year, language }
    */
   async generateSongFromMovie(movieEntry, usedSongs = [], config = {}, retryCount = 0) {
-    const maxRetries = 5; // Try up to 5 times to find a song with preview
+    const maxRetries = 8; // Try up to 8 times to find a song with preview
     const usedSongsText = usedSongs.length > 0
       ? `\n\nAlready used songs from this movie (do NOT suggest these): ${usedSongs.join(', ')}`
+      : '';
+
+    // Ask for more popular/famous songs on retries
+    const popularityNote = retryCount > 3
+      ? `\n\nIMPORTANT: This is retry #${retryCount}. Choose only the MOST FAMOUS, MAINSTREAM hits that are widely available on streaming services.`
       : '';
 
     const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
@@ -97,7 +102,7 @@ REQUIREMENTS:
 1. The song MUST be from the movie "${movieEntry.movie}"
 2. Choose an ICONIC, chart-topping song that everyone remembers and sings along to
 3. Provide the singer/artist name
-4. Names must be in English/romanized format ONLY${usedSongsText}
+4. Names must be in English/romanized format ONLY${usedSongsText}${popularityNote}
 
 Example Output:
 {
@@ -155,7 +160,7 @@ Output ONLY this JSON structure with no additional text:
       console.log(`  ✓ Generated song: "${association.song}" by ${association.artist}`);
       console.log(`     Movie: "${association.movie}" (${association.year}, ${association.language})`);
 
-      // Search for song on Deezer
+      // Search Deezer for preview
       console.log('  🔍 Searching Deezer for preview...');
       const deezerResult = await this.deezerService.searchSong(
         association.artist,
@@ -173,20 +178,21 @@ Output ONLY this JSON structure with no additional text:
         console.log(`  ✅ Matched Deezer: "${deezerResult.title}" by ${deezerResult.artistName}`);
         console.log(`     Preview URL: ${deezerResult.previewUrl}`);
         return association;
-      } else {
-        console.log(`❌ No Deezer preview found for: ${association.artist} - ${association.song}`);
+      }
 
-        // Retry with a different song if we haven't exceeded max retries
-        if (retryCount < maxRetries) {
-          console.log(`   🔄 Retry ${retryCount + 1}/${maxRetries}: Generating different song from same movie...`);
-          // Add this song to used songs to avoid regenerating it
-          usedSongs.push(association.song);
-          return await this.generateSongFromMovie(movieEntry, usedSongs, config, retryCount + 1);
-        } else {
-          console.warn(`   ⚠️  Max retries reached. Returning song without preview.`);
-          association.previewUrl = null;
-          return association;
-        }
+      // No preview found on Deezer
+      console.log(`❌ No Deezer preview found for: ${association.artist} - ${association.song}`);
+
+      // Retry with a different song if we haven't exceeded max retries
+      if (retryCount < maxRetries) {
+        console.log(`   🔄 Retry ${retryCount + 1}/${maxRetries}: Generating different song from same movie...`);
+        // Add this song to used songs to avoid regenerating it
+        usedSongs.push(association.song);
+        return await this.generateSongFromMovie(movieEntry, usedSongs, config, retryCount + 1);
+      } else {
+        console.warn(`   ⚠️  Max retries reached. Skipping this movie.`);
+        association.previewUrl = null;
+        return association;
       }
     } catch (error) {
       console.error('Error generating song from movie:', error);
