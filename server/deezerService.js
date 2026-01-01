@@ -45,18 +45,36 @@ class DeezerService {
         }
       }
 
+      // Strategy 5: Try just the song name with less strict search
+      if (!results || results.length === 0) {
+        console.log('  → Trying relaxed song search...');
+        const songWords = song.split(' ').slice(0, 2).join(' '); // First 2 words
+        results = await this.trySearch(songWords);
+      }
+
+      // Strategy 6: Try artist's last name + song
+      if (!results || results.length === 0) {
+        const artistParts = artist.split(' ');
+        if (artistParts.length > 1) {
+          const lastName = artistParts[artistParts.length - 1];
+          console.log(`  → Trying artist last name: "${lastName}"...`);
+          results = await this.trySearch(`${lastName} ${song}`);
+        }
+      }
+
       if (results && results.length > 0) {
         // Filter by year if provided
         if (year) {
           const yearMatches = results.filter(track => {
             if (!track.album || !track.album.release_date) return false;
             const trackYear = new Date(track.album.release_date).getFullYear();
-            return Math.abs(trackYear - year) <= 3; // Allow 3 years difference
+            return Math.abs(trackYear - year) <= 5; // Allow 5 years difference
           });
 
           if (yearMatches.length > 0) {
             results = yearMatches;
           }
+          // If no year matches, use all results anyway
         }
 
         // Get the first result (most relevant)

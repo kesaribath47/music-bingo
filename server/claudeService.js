@@ -1,6 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const DeezerService = require('./deezerService');
-const JioSaavnService = require('./jiosaavnService');
 const IMDbService = require('./imdbService');
 
 /**
@@ -12,7 +11,6 @@ class ClaudeService {
       apiKey: apiKey
     });
     this.deezerService = new DeezerService();
-    this.jiosaavnService = new JioSaavnService();
     this.imdbService = new IMDbService(tmdbApiKey);
   }
 
@@ -276,30 +274,19 @@ Output ONLY this JSON structure with no additional text:
         }
       }
 
-      // Try JioSaavn first (better for Indian music)
-      console.log('  🔍 Trying JioSaavn...');
-      let musicResult = await this.jiosaavnService.searchSong(
+      // Search for music preview using Deezer
+      console.log('  🔍 Searching Deezer for preview...');
+      const musicResult = await this.deezerService.searchSong(
         association.artist,
         association.song,
         association.year
       );
 
-      // Fall back to Deezer if JioSaavn fails
-      if (!musicResult || !musicResult.previewUrl) {
-        console.log('  🔍 JioSaavn failed, trying Deezer...');
-        musicResult = await this.deezerService.searchSong(
-          association.artist,
-          association.song,
-          association.year
-        );
-      }
-
       if (musicResult && musicResult.previewUrl) {
         association.previewUrl = musicResult.previewUrl;
-        association.musicLink = musicResult.jiosaavnLink || musicResult.deezerLink;
+        association.musicLink = musicResult.deezerLink;
         association.albumCover = musicResult.albumCover;
-        association.musicService = musicResult.jiosaavnLink ? 'JioSaavn' : 'Deezer';
-        console.log(`  ✅ Found preview on ${association.musicService}`);
+        console.log(`  ✅ Found preview on Deezer`);
         return association;
       } else {
         console.log(`❌ No preview found on any service for: ${association.artist} - ${association.song}`);
