@@ -26,7 +26,6 @@ class GameManager {
       host: null,
       prizeManager: new PrizeManager(),
       songs: [],
-      baseValues: {},
       usedSongs: [],
       songConfig: null, // { startYear, endYear, languages }
       songsGenerated: false,
@@ -135,14 +134,13 @@ class GameManager {
     room.songConfig = config;
 
     // Generate only 3 songs initially to get started quickly
-    const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
+    const { songs, usedSongs } = await this.claudeService.generateGameSongs(
       3,
       progressCallback,
       null,
       config
     );
     room.songs = songs;
-    room.baseValues = baseValues;
     room.usedSongs = usedSongs;
     room.songsGenerated = true;
     room.isGeneratingSongs = false;
@@ -196,19 +194,17 @@ class GameManager {
           const currentCount = room.songs.length;
 
           // Generate 5 more songs at a time
-          const { songs, baseValues, usedSongs } = await this.claudeService.generateGameSongs(
+          const { songs, usedSongs } = await this.claudeService.generateGameSongs(
             5,
             null, // No progress callback for background generation
             {
               songs: room.songs,
-              baseValues: room.baseValues,
               usedSongs: room.usedSongs
             },
             config
           );
 
           room.songs = songs;
-          room.baseValues = baseValues;
           room.usedSongs = usedSongs;
 
           // Notify clients that more songs are available
@@ -310,29 +306,6 @@ class GameManager {
     const room = this.getRoom(roomCode);
     if (!room) return null;
 
-    // Collect all unique entities from all songs
-    const entitiesMap = new Map();
-    room.songs.forEach(song => {
-      if (song.entities && Array.isArray(song.entities)) {
-        song.entities.forEach(entity => {
-          // Use name as key to ensure uniqueness
-          // Update if we have newer data (e.g., with imageUrl)
-          const existing = entitiesMap.get(entity.name);
-          if (!existing || (entity.imageUrl && !existing.imageUrl)) {
-            entitiesMap.set(entity.name, {
-              name: entity.name,
-              role: entity.role,
-              baseValue: entity.baseValue,
-              imageUrl: entity.imageUrl || null
-            });
-          }
-        });
-      }
-    });
-
-    // Convert map to array
-    const entities = Array.from(entitiesMap.values());
-
     return {
       code: room.code,
       playerCount: room.players.size,
@@ -350,9 +323,7 @@ class GameManager {
       totalSongs: room.songs.length,
       calledNumbers: room.calledNumbers,
       prizes: room.prizeManager.getAllPrizes(),
-      baseValues: room.baseValues,
-      entities: entities, // Add entities array with images
-      songs: room.songs // Add full songs array for called numbers modal
+      songs: room.songs // Send songs array for movie numbers display
     };
   }
 

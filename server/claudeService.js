@@ -15,9 +15,8 @@ class ClaudeService {
   }
 
   /**
-   * Generate a song association for a given number using specified language songs
-   * with actor/singer base values
-   * Returns { number, song, artist, clue, year, entities, calculation }
+   * Generate a song association for a given number
+   * Returns { number, song, artist, movie, year, language }
    */
   async generateSongAssociation(number, usedSongs = [], baseValues = {}, config = {}, retryCount = 0) {
     const maxRetries = 5; // Try up to 5 times to find a song with preview
@@ -26,107 +25,42 @@ class ClaudeService {
       ? `\n\nAlready used songs (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
 
-    const baseValuesText = Object.keys(baseValues).length > 0
-      ? `\n\nExisting base values for reference (you can change these if needed):\n${JSON.stringify(baseValues, null, 2)}\nYou can reuse these values or assign new values between 1-75 to make the math work for ${number}.`
-      : '';
-
+    // Build strict language filter
     const languageText = languages.length > 0 ? languages.join(' or ') : 'any language';
+    const languageFilter = languages.length > 0
+      ? `\n\nCRITICAL LANGUAGE REQUIREMENT: The song MUST be in EXACTLY one of these languages: ${languages.join(', ')}. Do NOT use Tamil, Telugu, or any other language. ONLY ${languages.join(' or ')}!`
+      : '';
 
     const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
 
-Generate a ${languageText} song association for the number ${number} for a music bingo game.
+Generate a ${languageText} song for the number ${number} for a music bingo game.
 
-The clue should be a mathematical equation using base values assigned to the ACTUAL people involved in THIS SPECIFIC SONG.
+REQUIREMENTS:
+1. Choose a BLOCKBUSTER movie with massive commercial success and box office records
+2. Choose an ICONIC, chart-topping song that everyone remembers and sings along to
+3. ONLY A-LIST MEGASTARS:
 
-CRITICAL - CLUE VARIATION RULES:
-- The clue MUST be based on the real people involved in this specific song
-- You can ONLY use: Male Singer, Female Singer, Lead Male Actor, Lead Female Actor
-- DO NOT use Music Director in clues
-- The clue should VARY from song to song - BE VERY CREATIVE!
-- You can use ALPHABET VALUES: First letter of a name = position in alphabet (A=1, B=2, ... Z=26)
+   For Hindi movies - ONLY these actors:
+   * Male: Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Akshay Kumar, Ranbir Kapoor, Ranveer Singh, Varun Dhawan
+   * Female: Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt, Anushka Sharma, Kajol, Madhuri Dixit, Aishwarya Rai
 
-CREATIVE CLUE PATTERNS (use different ones for variety):
-1. Direct person values:
-   * "Male Singer + Female Singer"
-   * "Lead Male Actor + Lead Female Actor"
-   * "Lead Male Actor + Male Singer"
-   * "Lead Female Actor + Female Singer"
-   * "Lead Male Actor + Lead Female Actor + Male Singer"
-   * "Male Singer + Female Singer + Lead Female Actor"
+   For Kannada movies - ONLY these actors:
+   * Male: Yash, Sudeep, Puneeth Rajkumar, Shiva Rajkumar, Upendra, Darshan
+   * Female: Rashmika Mandanna, Radhika Pandit, Ramya, Rachita Ram
 
-2. Alphabet-based clues (VERY CREATIVE):
-   * "First letter of Lead Male Actor's first name + Lead Female Actor" (if Shah Rukh Khan, S=19)
-   * "First letter of Male Singer's last name + Lead Male Actor"
-   * "First letter of Female Singer's name + Male Singer + Lead Female Actor"
-   * "Lead Male Actor + First letter of Lead Female Actor's first name"
-   * "Male Singer + First letter of Lead Male Actor's first name"
+4. The song must be from ${startYear} to ${endYear}
+5. Names must be in English/romanized format ONLY${languageFilter}${usedSongsText}
 
-3. Mixed combinations:
-   * "Lead Female Actor + First letter of Male Singer's first name + Lead Male Actor"
-   * "Lead Male Actor + Lead Female Actor + First letter of Movie name"
-   * "Male Singer + First letter of Lead Female Actor's name"
-
-IMPORTANT RULES:
-1. VERIFY YOUR MATH: The calculation MUST equal ${number} exactly!
-2. Use proper terminology: "Lead Male Actor", "Lead Female Actor", "Male Singer", "Female Singer"
-3. When using alphabet values, clearly state which letter you're using in the clue
-4. CRITICAL - ONLY A-LIST MEGASTARS FOR ALL ROLES:
-
-   For ACTORS (Hindi):
-   * ONLY use: Shah Rukh Khan, Salman Khan, Aamir Khan, Hrithik Roshan, Akshay Kumar, Ranbir Kapoor, Ranveer Singh, Varun Dhawan
-   * ONLY use: Deepika Padukone, Priyanka Chopra, Kareena Kapoor, Katrina Kaif, Alia Bhatt, Anushka Sharma, Kajol, Madhuri Dixit, Aishwarya Rai
-
-   For ACTORS (Kannada):
-   * ONLY use: Yash, Sudeep, Puneeth Rajkumar, Shiva Rajkumar, Upendra, Darshan
-   * ONLY use: Rashmika Mandanna, Radhika Pandit, Ramya, Rachita Ram
-
-   For SINGERS (Hindi):
-   * ONLY use: Arijit Singh, Sonu Nigam, Atif Aslam, Vishal Dadlani, Shaan, KK, Mohit Chauhan, Armaan Malik
-   * ONLY use: Shreya Ghoshal, Sunidhi Chauhan, Neha Kakkar, Alka Yagnik, Kavita Krishnamurthy
-
-   For SINGERS (Kannada):
-   * ONLY use: Sonu Nigam, Vijay Prakash, Armaan Malik, Raghu Dixit, Harikrishna, Arjun Janya
-   * ONLY use: Shreya Ghoshal, Sunidhi Chauhan, Chitra, Vani Jairam
-
-   * NO semi-famous or lesser-known people AT ALL
-   * ONLY absolute megastars that EVERYONE knows
-   * Choose songs ONLY from BLOCKBUSTER movies with massive commercial success
-   * Movies should be major hits that broke box office records
-   * Prefer iconic songs that everyone remembers and sings along to
-
-5. Choose ONLY popular, mainstream, chart-topping ${languageText} songs that most people would recognize
-6. The song must be from ${startYear} to ${endYear}
-7. Names must be in English/romanized format ONLY${usedSongsText}${baseValuesText}
-
-Example 1 (Direct):
-Target: 45, Song: "Tum Hi Ho" from Aashiqui 2 (2013)
-- Male Singer: Arijit Singh (25)
-- Lead Male Actor: Aditya Roy Kapur (20)
-Clue: "Male Singer + Lead Male Actor"
-Calculation: "25 + 20"
-Verification: 25 + 20 = 45 ✓
-
-Example 2 (Alphabet):
-Target: 39, Song: "Chaiyya Chaiyya" from Dil Se (1998)
-- Male Singer: Sukhwinder Singh (20)
-- First letter of Lead Male Actor "Shah Rukh Khan" = S = 19
-Clue: "Male Singer + First letter of Lead Male Actor's first name"
-Calculation: "20 + 19"
-Verification: 20 + 19 = 39 ✓
-Entities: [
-  {"name": "Sukhwinder Singh", "role": "Male Singer", "baseValue": 20},
-  {"name": "Shah Rukh Khan", "role": "Lead Male Actor", "baseValue": 19}
-]
-
-Example 3 (Mixed):
-Target: 50, Song: "Tum Se Hi" from Jab We Met (2007)
-- Lead Male Actor: Shahid Kapoor (30)
-- Lead Female Actor: Kareena Kapoor (15)
-- First letter of Movie "Jab We Met" = J = 10
-Clue: "Lead Male Actor + Lead Female Actor - First letter of Movie name"
-Calculation: "30 + 15 - 10"
-Verification: 30 + 15 - 10 = 35... WRONG! Must recalculate.
-Corrected: Lead Male Actor (35) + Lead Female Actor (15) = 50 ✓
+Example Output:
+{
+  "number": ${number},
+  "song": "Tum Hi Ho",
+  "artist": "Arijit Singh",
+  "movie": "Aashiqui 2",
+  "actors": ["Aditya Roy Kapur", "Shraddha Kapoor"],
+  "year": 2013,
+  "language": "Hindi"
+}
 
 Output ONLY this JSON structure with no additional text:
 {
@@ -135,12 +69,8 @@ Output ONLY this JSON structure with no additional text:
   "artist": "Singer Name(s)",
   "movie": "Movie Name",
   "actors": ["Lead Male Actor Name", "Lead Female Actor Name"],
-  "clue": "Description of equation using proper terminology",
   "year": 2013,
-  "entities": [
-    {"name": "Person Name", "role": "Lead Male Actor|Lead Female Actor|Male Singer|Female Singer", "baseValue": 25}
-  ],
-  "calculation": "25 + 20"
+  "language": "Hindi or Kannada"
 }`;
 
     try {
@@ -173,106 +103,24 @@ Output ONLY this JSON structure with no additional text:
 
       const association = JSON.parse(jsonText);
 
-      // Validate that the calculation equals the target number
-      if (association.calculation) {
-        try {
-          // Safely evaluate the calculation
-          const result = eval(association.calculation);
-          if (result !== number) {
-            console.warn(`⚠️  Calculation mismatch: ${association.calculation} = ${result}, expected ${number}`);
-            console.warn(`   Song: "${association.song}" - Regenerating with corrected values...`);
+      // Validate language match
+      if (association.language && languages.length > 0) {
+        const languageMatch = languages.some(lang =>
+          association.language.toLowerCase() === lang.toLowerCase()
+        );
 
-            // Attempt to fix by adjusting the last entity's value
-            if (association.entities && association.entities.length > 0) {
-              const diff = number - result;
-              const lastEntity = association.entities[association.entities.length - 1];
-              const oldValue = lastEntity.baseValue;
-              lastEntity.baseValue += diff;
+        if (!languageMatch) {
+          console.warn(`⚠️  Language mismatch: Got ${association.language}, expected one of ${languages.join(', ')}`);
+          console.warn(`   Retrying to get correct language...`);
 
-              // Update calculation string
-              const parts = association.calculation.split(/[\+\-\*\/]/).map(p => p.trim());
-              parts[parts.length - 1] = lastEntity.baseValue.toString();
-              association.calculation = association.calculation.replace(/\d+(?!.*\d)/, lastEntity.baseValue);
-
-              console.log(`   ✓ Fixed: Adjusted ${lastEntity.name} from ${oldValue} to ${lastEntity.baseValue}`);
-              console.log(`   ✓ New calculation: ${association.calculation} = ${number}`);
-            }
-          } else {
-            console.log(`  ✓ Calculation verified: ${association.calculation} = ${number}`);
-          }
-        } catch (error) {
-          console.warn(`⚠️  Could not validate calculation: ${association.calculation}`);
-        }
-      }
-
-      // Update base values with new entities
-      if (association.entities) {
-        association.entities.forEach(entity => {
-          baseValues[entity.name] = entity.baseValue;
-        });
-      }
-
-      // Search TMDb for movie information to enrich entities with images
-      if (association.movie) {
-        const movieData = await this.imdbService.searchMovie(association.movie, association.year);
-
-        if (movieData) {
-          console.log(`  📽️  Enriching entities with TMDb data...`);
-
-          // Create a map of people from TMDb for easy lookup
-          const tmdbPeople = new Map();
-
-          // Add actors
-          if (movieData.leadActors) {
-            movieData.leadActors.forEach(actor => {
-              tmdbPeople.set(actor.name.toLowerCase(), {
-                image: actor.profileImage,
-                type: 'actor'
-              });
-            });
-          }
-
-          // Add music directors
-          if (movieData.musicDirectors && movieData.musicDirectors.length > 0) {
-            movieData.musicDirectors.forEach(md => {
-              tmdbPeople.set(md.name.toLowerCase(), {
-                image: md.profileImage,
-                type: 'music_director'
-              });
-            });
-          }
-
-          // Enrich entities with images from TMDb
-          if (association.entities) {
-            for (const entity of association.entities) {
-              const personData = tmdbPeople.get(entity.name.toLowerCase());
-
-              if (personData && personData.image) {
-                entity.imageUrl = personData.image;
-                console.log(`    ✓ Added image for ${entity.name}`);
-              } else if (entity.role.toLowerCase().includes('singer')) {
-                // For singers, try searching TMDb person database
-                const singerData = await this.imdbService.searchPerson(entity.name);
-                if (singerData && singerData.profileImage) {
-                  entity.imageUrl = singerData.profileImage;
-                  console.log(`    ✓ Added image for singer ${entity.name}`);
-                } else {
-                  console.log(`    ⚠️  No image found for ${entity.name}`);
-                  entity.imageUrl = null;
-                }
-              } else {
-                console.log(`    ⚠️  No TMDb match for ${entity.name}`);
-                entity.imageUrl = null;
-              }
-            }
-          }
-
-          // Add movie poster if available
-          if (movieData.posterUrl) {
-            association.moviePoster = movieData.posterUrl;
+          if (retryCount < maxRetries) {
+            usedSongs.push(`${association.artist} - ${association.song}`);
+            return await this.generateSongAssociation(number, usedSongs, baseValues, config, retryCount + 1);
           }
         }
       }
+
+      console.log(`  ✓ Generated: "${association.song}" from ${association.movie} (${association.year}) - ${association.language}`);
 
       // Search for music preview using Deezer
       console.log('  🔍 Searching Deezer for preview...');
@@ -307,23 +155,16 @@ Output ONLY this JSON structure with no additional text:
       console.error('Error generating song association:', error);
 
       // Fallback to simple association
-      const fallbackValue1 = Math.floor(number / 2);
-      const fallbackValue2 = number - fallbackValue1;
-
       return {
         number: number,
-        song: `Hindi Song ${number}`,
+        song: `Song ${number}`,
         artist: 'Various Artists',
+        movie: `Movie ${number}`,
         actors: [],
-        clue: `Value 1 + Value 2`,
         year: 2020,
+        language: languages[0] || 'Hindi',
         previewUrl: null,
-        deezerLink: null,
-        entities: [
-          { name: 'Person A', role: 'Actor', baseValue: fallbackValue1 },
-          { name: 'Person B', role: 'Actor', baseValue: fallbackValue2 }
-        ],
-        calculation: `${fallbackValue1} + ${fallbackValue2}`
+        deezerLink: null
       };
     }
   }
@@ -332,13 +173,12 @@ Output ONLY this JSON structure with no additional text:
    * Generate multiple song associations for a game
    * @param {number} count - Number of songs to generate
    * @param {function} progressCallback - Optional callback(current, total) for progress updates
-   * @param {object} existingData - Optional existing songs and baseValues to continue from
+   * @param {object} existingData - Optional existing songs to continue from
    * @param {object} config - Optional config with startYear, endYear, languages
    */
   async generateGameSongs(count = 75, progressCallback = null, existingData = null, config = {}) {
     const songs = existingData?.songs || [];
     const usedSongs = existingData?.usedSongs || [];
-    const baseValues = existingData?.baseValues || {};
 
     // Generate numbers 1-75 in random order
     const numbers = Array.from({ length: 75 }, (_, i) => i + 1);
@@ -352,7 +192,7 @@ Output ONLY this JSON structure with no additional text:
     // Generate songs for first 'count' numbers
     const songsToGenerate = Math.min(count, availableNumbers.length);
     for (let i = 0; i < songsToGenerate; i++) {
-      const song = await this.generateSongAssociation(availableNumbers[i], usedSongs, baseValues, config);
+      const song = await this.generateSongAssociation(availableNumbers[i], usedSongs, {}, config);
       songs.push(song);
       usedSongs.push(`${song.artist} - ${song.song}`);
 
@@ -365,7 +205,7 @@ Output ONLY this JSON structure with no additional text:
       await this.sleep(1000);
     }
 
-    return { songs, baseValues, usedSongs };
+    return { songs, usedSongs };
   }
 
   /**
