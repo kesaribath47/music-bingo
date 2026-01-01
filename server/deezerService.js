@@ -16,78 +16,101 @@ class DeezerService {
    * @param {string} song - Song title
    * @param {number} year - Release year (optional, for filtering)
    * @param {string} movie - Movie name (optional, helps find film songs)
+   * @param {string} language - Language (Hindi/Kannada)
    * @returns {Object} - { previewUrl, duration, deezerLink }
    */
-  async searchSong(artist, song, year = null, movie = null) {
+  async searchSong(artist, song, year = null, movie = null, language = null) {
     try {
-      console.log(`Searching Deezer for: "${song}" from "${movie}" by "${artist}" (${year || 'any year'})`);
+      console.log(`Searching Deezer for: "${song}" from "${movie}" by "${artist}" (${year || 'any year'}, ${language})`);
 
-      // Strategy 1: Try with movie name for film songs
+      // Add language-specific keywords
+      const languageKeyword = language === 'Kannada' ? 'Kannada' : 'Bollywood Hindi';
+
+      // Strategy 1: Try with movie name and language for film songs
       let results = null;
       if (movie) {
+        console.log(`  → Trying: ${song} ${movie} ${languageKeyword}`);
+        results = await this.trySearch(`${song} ${movie} ${languageKeyword}`);
+      }
+
+      // Strategy 2: Try with artist and song and language
+      if (!results || results.length === 0) {
+        console.log(`  → Trying: ${artist} ${song} ${languageKeyword}`);
+        results = await this.trySearch(`${artist} ${song} ${languageKeyword}`);
+      }
+
+      // Strategy 3: Try song + movie + artist (without language keyword)
+      if (!results || results.length === 0) {
+        console.log(`  → Trying: ${song} ${movie} ${artist}`);
         results = await this.trySearch(`${song} ${movie} ${artist}`);
       }
 
-      // Strategy 2: Try exact artist + track search
-      if (!results || results.length === 0) {
-        results = await this.trySearch(`artist:"${artist}" track:"${song}"`);
+      // Strategy 4: Try movie soundtrack
+      if (!results || results.length === 0 && movie) {
+        console.log(`  → Trying: ${movie} soundtrack ${song}`);
+        results = await this.trySearch(`${movie} soundtrack ${song}`);
       }
 
-      // Strategy 3: If no results, try without quotes (more flexible)
-      if (!results || results.length === 0) {
-        console.log('  → Trying flexible search without quotes...');
-        results = await this.trySearch(`${artist} ${song}`);
+      // Strategy 5: Try just song + movie
+      if (!results || results.length === 0 && movie) {
+        console.log(`  → Trying: ${song} ${movie}`);
+        results = await this.trySearch(`${song} ${movie}`);
       }
 
-      // Strategy 4: If still no results, try just the song title
-      if (!results || results.length === 0) {
-        console.log('  → Trying song title only...');
-        results = await this.trySearch(song);
-      }
-
-      // Strategy 5: Try with first artist name only (in case of multiple artists)
+      // Strategy 6: Try with first artist name only (in case of multiple artists)
       if (!results || results.length === 0) {
         const firstArtist = artist.split(',')[0].trim();
         if (firstArtist !== artist) {
-          console.log(`  → Trying first artist only: "${firstArtist}"...`);
-          results = await this.trySearch(`${firstArtist} ${song}`);
-        }
-      }
-
-      // Strategy 6: Try just the song name with less strict search
-      if (!results || results.length === 0) {
-        console.log('  → Trying relaxed song search...');
-        const songWords = song.split(' ').slice(0, 2).join(' '); // First 2 words
-        results = await this.trySearch(songWords);
-      }
-
-      // Strategy 7: Try artist's last name + song
-      if (!results || results.length === 0) {
-        const artistParts = artist.split(' ');
-        if (artistParts.length > 1) {
-          const lastName = artistParts[artistParts.length - 1];
-          console.log(`  → Trying artist last name: "${lastName}"...`);
-          results = await this.trySearch(`${lastName} ${song}`);
+          console.log(`  → Trying first artist only: "${firstArtist} ${song}"`);
+          results = await this.trySearch(`${firstArtist} ${song} ${languageKeyword}`);
         }
       }
 
       if (results && results.length > 0) {
+        // Filter to avoid English/Western artists
+        const commonWesternArtists = ['celine dion', 'titanic', 'james horner', 'whitney houston', 'mariah carey', 'backstreet boys'];
+        const filteredResults = results.filter(track => {
+          const artistName = (track.artist?.name || '').toLowerCase();
+          const trackTitle = (track.title || '').toLowerCase();
+
+          // Reject if it's a known Western artist
+          for (const western of commonWesternArtists) {
+            if (artistName.includes(western) || trackTitle.includes(western)) {
+              console.log(`  ✗ Rejecting Western song: "${track.title}" by ${track.artist?.name}`);
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        const finalResults = filteredResults.length > 0 ? filteredResults : results;
+
         // Filter by year if provided
         if (year) {
-          const yearMatches = results.filter(track => {
+          const yearMatches = finalResults.filter(track => {
             if (!track.album || !track.album.release_date) return false;
             const trackYear = new Date(track.album.release_date).getFullYear();
             return Math.abs(trackYear - year) <= 5; // Allow 5 years difference
           });
 
           if (yearMatches.length > 0) {
-            results = yearMatches;
+            const track = yearMatches[0];
+            console.log(`  ✓ Found: "${track.title}" by ${track.artist?.name} (${track.album?.title || 'Unknown Album'})`);
+
+            return {
+              previewUrl: track.preview, // 30-second MP3 preview
+              duration: track.duration || 30, // Duration in seconds
+              deezerLink: track.link, // Link to full song on Deezer
+              albumCover: track.album?.cover_medium,
+              title: track.title,
+              artistName: track.artist?.name
+            };
           }
-          // If no year matches, use all results anyway
         }
 
         // Get the first result (most relevant)
-        const track = results[0];
+        const track = finalResults[0];
         console.log(`  ✓ Found: "${track.title}" by ${track.artist?.name} (${track.album?.title || 'Unknown Album'})`);
 
         return {

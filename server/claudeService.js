@@ -104,6 +104,7 @@ Output ONLY this JSON structure with no additional text:
       };
 
       console.log(`  ✓ Generated song: "${association.song}" by ${association.artist}`);
+      console.log(`     Movie: "${association.movie}" (${association.year}, ${association.language})`);
 
       // Search for song on Deezer
       console.log('  🔍 Searching Deezer for preview...');
@@ -111,7 +112,8 @@ Output ONLY this JSON structure with no additional text:
         association.artist,
         association.song,
         association.year,
-        association.movie
+        association.movie,
+        association.language
       );
 
       if (deezerResult && deezerResult.previewUrl) {
@@ -119,7 +121,8 @@ Output ONLY this JSON structure with no additional text:
         association.deezerLink = deezerResult.deezerLink;
         association.duration = deezerResult.duration;
 
-        console.log(`  ✅ Found on Deezer with 30s preview`);
+        console.log(`  ✅ Matched Deezer: "${deezerResult.title}" by ${deezerResult.artistName}`);
+        console.log(`     Preview URL: ${deezerResult.previewUrl}`);
         return association;
       } else {
         console.log(`❌ No Deezer preview found for: ${association.artist} - ${association.song}`);
