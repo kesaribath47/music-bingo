@@ -1,7 +1,8 @@
 const Anthropic = require('@anthropic-ai/sdk');
-const DeezerService = require('./deezerService');
+const YouTubeService = require('./youtubeService');
 const IMDbService = require('./imdbService');
 const { generateInstantMovieList } = require('./movieLists');
+const { getPrevalidatedSong } = require('./prevalidatedSongs');
 
 /**
  * Service to generate song-number associations using Claude API
@@ -11,109 +12,121 @@ class ClaudeService {
     this.client = new Anthropic({
       apiKey: apiKey
     });
-    this.deezerService = new DeezerService();
+    this.youtubeService = new YouTubeService(youtubeApiKey);
     this.imdbService = new IMDbService(tmdbApiKey);
   }
 
   /**
-   * Generate a list of 50 movies with verified Deezer previews
-   * Returns array of { number, movie, year, language, actors }
+   * Generate a list of 50 movies with pre-validated songs (NO API CALLS!)
+   * Returns array of { number, movie, year, language }
    */
   async generateMovieList(config = {}, progressCallback = null) {
     const { languages = ['Hindi', 'Kannada'], startYear, endYear } = config;
     const yearInfo = startYear && endYear ? ` (${startYear}-${endYear})` : '';
-    console.log(`\n🎬 Generating 50 movies with Deezer preview validation from ${languages.join(', ')} catalog${yearInfo}...`);
+    console.log(`\n🎬 Generating 50 movies with PRE-VALIDATED songs from ${languages.join(', ')} catalog${yearInfo}...`);
+    console.log(`✨ Using pre-validated list - NO YouTube API calls needed!`);
 
-    // Generate a larger pool of movies to validate
-    const candidateMovies = generateInstantMovieList(languages, startYear, endYear, 100); // Get 100 candidates
-    console.log(`📋 Got ${candidateMovies.length} candidate movies to validate...`);
+    // Get movies that have pre-validated songs (instant, no API calls!)
+    const movies = generateInstantMovieList(languages, startYear, endYear, 50);
 
-    const validatedMovies = [];
-    let checkedCount = 0;
+    console.log(`📋 Selected ${movies.length} movies with pre-validated songs`);
 
-    for (const movie of candidateMovies) {
-      if (validatedMovies.length >= 50) {
-        break; // We have enough
-      }
-
-      checkedCount++;
-      console.log(`\n🔍 [${checkedCount}/${candidateMovies.length}] Validating: ${movie.movie} (${movie.year})`);
-
-      // Report progress
-      if (progressCallback) {
+    // Report progress
+    if (progressCallback) {
+      for (let i = 0; i < movies.length; i++) {
         progressCallback({
-          current: validatedMovies.length,
-          total: 50,
-          checking: movie.movie
+          current: i + 1,
+          total: movies.length,
+          checking: movies[i].movie
         });
-      }
-
-      try {
-        // Generate a song for this movie
-        const song = await this.generateSongFromMovie(movie, [], config, 0);
-
-        // Check if it has a preview URL
-        if (song && song.previewUrl) {
-          validatedMovies.push(movie);
-          console.log(`   ✅ Valid! (${validatedMovies.length}/50 confirmed)`);
-        } else {
-          console.log(`   ❌ No Deezer preview available, skipping...`);
-        }
-      } catch (error) {
-        console.log(`   ❌ Error validating: ${error.message}`);
-      }
-
-      // Small delay to avoid rate limiting
-      if (checkedCount % 5 === 0) {
-        await this.sleep(1000); // 1 second pause every 5 checks
+        // Small delay for UI to update
+        await this.sleep(50);
       }
     }
 
-    // Renumber the validated movies 1-50
-    const finalMovies = validatedMovies.slice(0, 50).map((movie, index) => ({
-      ...movie,
-      number: index + 1
-    }));
-
-    console.log(`\n✅ Generated ${finalMovies.length} movies with verified Deezer previews!`);
-    return finalMovies;
+    console.log(`\n✅ Generated ${movies.length} movies instantly!`);
+    return movies;
   }
 
   /**
-   * Generate a song from a specific movie
-   * Returns { number, song, artist, movie, year, language }
+   * Generate a song from a specific movie using PRE-VALIDATED list (NO API CALLS!)
+   * Returns { number, song, artist, movie, year, language, videoId }
    */
   async generateSongFromMovie(movieEntry, usedSongs = [], config = {}, retryCount = 0) {
-    const maxRetries = 8; // Try up to 8 times to find a song with preview
+    // Try to get a pre-validated song first (NO API CALLS!)
+    const prevalidatedSong = getPrevalidatedSong(movieEntry.movie, usedSongs);
+
+    if (prevalidatedSong) {
+      console.log(`  ✅ Using PRE-VALIDATED song: "${prevalidatedSong.song}" by ${prevalidatedSong.artist}`);
+      console.log(`     Movie: "${prevalidatedSong.movie}" (${prevalidatedSong.year}, ${prevalidatedSong.language})`);
+      console.log(`     Video ID: ${prevalidatedSong.videoId} (pre-verified, no API call needed!)`);
+
+      return {
+        number: movieEntry.number,
+        song: prevalidatedSong.song,
+        artist: prevalidatedSong.artist,
+        movie: prevalidatedSong.movie,
+        year: prevalidatedSong.year,
+        language: prevalidatedSong.language,
+        videoId: prevalidatedSong.videoId,
+        duration: 180 // Default 3 minutes
+      };
+    }
+
+    // Fallback to old method if no pre-validated song found (requires API calls)
+    console.log(`  ⚠️  No pre-validated song found for "${movieEntry.movie}", falling back to API search...`);
+    return await this.generateSongFromMovieWithAPI(movieEntry, usedSongs, config, retryCount);
+  }
+
+  /**
+   * FALLBACK: Generate a song from a specific movie using Claude + YouTube API
+   * Only used when no pre-validated song is available
+   * Returns { number, song, artist, movie, year, language, videoId }
+   */
+  async generateSongFromMovieWithAPI(movieEntry, usedSongs = [], config = {}, retryCount = 0) {
+    const maxRetries = 8; // Try up to 8 times to find a song with YouTube video
     const usedSongsText = usedSongs.length > 0
       ? `\n\nAlready used songs from this movie (do NOT suggest these): ${usedSongs.join(', ')}`
       : '';
 
     // Ask for more popular/famous songs on retries
     const popularityNote = retryCount > 3
-      ? `\n\nIMPORTANT: This is retry #${retryCount}. Choose only the MOST FAMOUS, MAINSTREAM hits that are widely available on streaming services.`
+      ? `\n\nIMPORTANT: This is retry #${retryCount}. Choose only the MOST FAMOUS, MAINSTREAM hits that are widely available on YouTube.`
       : '';
 
     const prompt = `IMPORTANT: Respond with ONLY valid JSON. Do not include any explanatory text, markdown formatting, or additional commentary. Only output the JSON object.
 
-Generate a popular, chart-topping song from the movie "${movieEntry.movie}" (${movieEntry.year}).
+Generate a popular, chart-topping song from the ${movieEntry.language} movie "${movieEntry.movie}" (${movieEntry.year}).
 
-REQUIREMENTS:
-1. The song MUST be from the movie "${movieEntry.movie}"
-2. Choose an ICONIC, chart-topping song that everyone remembers and sings along to
-3. Provide the singer/artist name
-4. Names must be in English/romanized format ONLY${usedSongsText}${popularityNote}
+CRITICAL REQUIREMENTS:
+1. The song MUST be from the ${movieEntry.language} movie "${movieEntry.movie}" - NOT from any other movie
+2. The song MUST be in ${movieEntry.language} language - NOT in English or any other language
+3. Choose an ICONIC, chart-topping song that everyone in ${movieEntry.language} cinema remembers
+4. The song MUST have been featured in the movie's soundtrack
+5. Provide the actual singer/artist name who sang in the movie
+6. Names must be in English/romanized format ONLY${usedSongsText}${popularityNote}
 
-Example Output:
+STRICT VALIDATION:
+- If you're not 100% certain the song is from "${movieEntry.movie}", DO NOT suggest it
+- Verify the song is in ${movieEntry.language}, not English or other languages
+- Verify the artist actually sang for this specific movie
+
+Example for Hindi movie "Aashiqui 2" (2013):
 {
   "song": "Tum Hi Ho",
   "artist": "Arijit Singh"
 }
 
+Example for Kannada movie "Mungaru Male" (2006):
+{
+  "song": "Anisuthide",
+  "artist": "Sonu Nigam"
+}
+
 Output ONLY this JSON structure with no additional text:
 {
-  "song": "Song Title",
-  "artist": "Singer Name(s)"
+  "song": "Song Title in ${movieEntry.language}",
+  "artist": "Singer Name(s) who sang in ${movieEntry.movie}"
 }`;
 
     try {
@@ -160,28 +173,29 @@ Output ONLY this JSON structure with no additional text:
       console.log(`  ✓ Generated song: "${association.song}" by ${association.artist}`);
       console.log(`     Movie: "${association.movie}" (${association.year}, ${association.language})`);
 
-      // Search Deezer for preview
-      console.log('  🔍 Searching Deezer for preview...');
-      const deezerResult = await this.deezerService.searchSong(
+      // Search YouTube for video
+      console.log('  🔍 Searching YouTube for video...');
+      const youtubeResult = await this.youtubeService.searchSong(
         association.artist,
         association.song,
-        association.year,
         association.movie,
-        association.language
+        association.language,
+        association.year
       );
 
-      if (deezerResult && deezerResult.previewUrl) {
-        association.previewUrl = deezerResult.previewUrl;
-        association.deezerLink = deezerResult.deezerLink;
-        association.duration = deezerResult.duration;
+      if (youtubeResult && youtubeResult.videoId) {
+        association.videoId = youtubeResult.videoId;
+        association.videoTitle = youtubeResult.title;
+        association.channelTitle = youtubeResult.channelTitle;
+        association.duration = youtubeResult.duration;
 
-        console.log(`  ✅ Matched Deezer: "${deezerResult.title}" by ${deezerResult.artistName}`);
-        console.log(`     Preview URL: ${deezerResult.previewUrl}`);
+        console.log(`  ✅ Matched YouTube: "${youtubeResult.title}" on ${youtubeResult.channelTitle}`);
+        console.log(`     Video ID: ${youtubeResult.videoId}`);
         return association;
       }
 
-      // No preview found on Deezer
-      console.log(`❌ No Deezer preview found for: ${association.artist} - ${association.song}`);
+      // No video found on YouTube
+      console.log(`❌ No YouTube video found for: ${association.artist} - ${association.song}`);
 
       // Retry with a different song if we haven't exceeded max retries
       if (retryCount < maxRetries) {
@@ -191,7 +205,7 @@ Output ONLY this JSON structure with no additional text:
         return await this.generateSongFromMovie(movieEntry, usedSongs, config, retryCount + 1);
       } else {
         console.warn(`   ⚠️  Max retries reached. Skipping this movie.`);
-        association.previewUrl = null;
+        association.videoId = null;
         return association;
       }
     } catch (error) {
@@ -206,7 +220,7 @@ Output ONLY this JSON structure with no additional text:
         actors: movieEntry.actors,
         year: movieEntry.year,
         language: movieEntry.language,
-        previewUrl: null
+        videoId: null
       };
     }
   }

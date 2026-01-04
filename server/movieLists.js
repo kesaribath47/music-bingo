@@ -3,6 +3,8 @@
  * Used for instant movie generation without API calls
  */
 
+const { getMoviesWithPrevalidatedSongs } = require('./prevalidatedSongs');
+
 const hindiMovies = [
   { movie: "Dilwale Dulhania Le Jayenge", year: 1995, language: "Hindi" },
   { movie: "Kuch Kuch Hota Hai", year: 1998, language: "Hindi" },
@@ -101,7 +103,8 @@ module.exports = {
   kannadaMovies,
 
   /**
-   * Generate movies instantly by selecting from predefined lists
+   * Generate movies instantly by selecting from predefined lists WITH pre-validated songs
+   * This ensures NO YouTube API calls are needed
    * @param {Array} languages - Array of languages ['Hindi', 'Kannada']
    * @param {Number} startYear - Start year for filtering (optional)
    * @param {Number} endYear - End year for filtering (optional)
@@ -109,6 +112,32 @@ module.exports = {
    * @returns {Array} - Array of movies numbered 1-N
    */
   generateInstantMovieList(languages, startYear = null, endYear = null, count = 50) {
+    // Get movies that have pre-validated songs (no API calls needed!)
+    const moviesWithSongs = getMoviesWithPrevalidatedSongs(languages, startYear, endYear);
+
+    // Shuffle for variety
+    const shuffled = shuffleArray([...moviesWithSongs]);
+
+    // Take the requested count
+    const selectedMovies = shuffled.slice(0, Math.min(count, shuffled.length));
+
+    // Number them sequentially
+    return selectedMovies.map((movie, index) => ({
+      ...movie,
+      number: index + 1
+    }));
+  },
+
+  /**
+   * DEPRECATED: Old version that used all movies (may not have pre-validated songs)
+   * Generate movies instantly by selecting from predefined lists
+   * @param {Array} languages - Array of languages ['Hindi', 'Kannada']
+   * @param {Number} startYear - Start year for filtering (optional)
+   * @param {Number} endYear - End year for filtering (optional)
+   * @param {Number} count - Number of movies to generate (default 50)
+   * @returns {Array} - Array of movies numbered 1-N
+   */
+  generateInstantMovieListOld(languages, startYear = null, endYear = null, count = 50) {
     let selectedMovies = [];
 
     // Filter movies by year range if specified
